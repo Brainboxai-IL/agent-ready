@@ -85,14 +85,14 @@ apps/*/CLAUDE.md             # generated for detected monorepo workspaces
 ### Run with npx
 
 ```bash
-npx agent-ready analyze .
-npx agent-ready init . --dry-run
+npx @netanelyasi/agent-ready analyze .
+npx @netanelyasi/agent-ready init . --dry-run
 ```
 
 ### Install globally
 
 ```bash
-npm install -g agent-ready
+npm install -g @netanelyasi/agent-ready
 agent-ready analyze .
 ```
 
@@ -106,7 +106,7 @@ npm run build
 node dist/cli.js analyze .
 ```
 
-> The npm package is prepared for publishing. If `npx agent-ready` is not available yet, publish with `npm publish --access public` from an authenticated npm account.
+> Published package: [`@netanelyasi/agent-ready`](https://www.npmjs.com/package/@netanelyasi/agent-ready). The CLI binary remains `agent-ready` after global install.
 
 ## Quick Start
 
