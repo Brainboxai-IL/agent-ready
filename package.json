@@ -1,6 +1,6 @@
 {
   "name": "agent-ready",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Generate an AI-agent harness for any codebase: CLAUDE.md, CODEMAP.md, skills, ignore rules, and readiness reports.",
   "type": "module",
   "bin": {
