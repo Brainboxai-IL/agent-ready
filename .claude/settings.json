@@ -12,6 +12,54 @@
       "**/*.generated.*"
     ]
   },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/prevent-destructive.mjs"
+            ],
+            "timeout": 10,
+            "statusMessage": "Checking command safety"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/protect-generated.mjs"
+            ],
+            "timeout": 10,
+            "statusMessage": "Checking generated/noisy path safety"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/suggest-validation.mjs"
+            ],
+            "timeout": 10,
+            "statusMessage": "Suggesting validation"
+          }
+        ]
+      }
+    ]
+  },
   "agentReady": {
     "generatedBy": "agent-ready",
     "project": "agent-ready"

@@ -7,6 +7,9 @@ export function generateFiles(scan: ProjectScan, score: ReadinessScore, force: b
   add("CODEMAP.md", generateCodemap(scan));
   add(".aiignore", generateAiIgnore(scan));
   add(".claude/settings.json", generateClaudeSettings(scan));
+  add(".claude/hooks/prevent-destructive.mjs", generatePreventDestructiveHook());
+  add(".claude/hooks/protect-generated.mjs", generateProtectGeneratedHook());
+  add(".claude/hooks/suggest-validation.mjs", generateSuggestValidationHook(scan));
   add(".agent-ready/report.md", generateReport(scan, score));
   add(".agent-ready/recommendations.md", generateRecommendations(scan));
   add(".agent-ready/hooks/README.md", generateHooksReadme(scan));
@@ -238,7 +241,124 @@ function generateClaudeSettings(scan: ProjectScan): string {
     "generated/**",
     "**/*.generated.*",
   ];
-  return `${JSON.stringify({ permissions: { deny: [...new Set(deny)] }, agentReady: { generatedBy: "agent-ready", project: scan.name } }, null, 2)}\n`;
+  const settings = {
+    permissions: { deny: [...new Set(deny)] },
+    hooks: {
+      PreToolUse: [
+        {
+          matcher: "Bash",
+          hooks: [
+            {
+              type: "command",
+              command: "node",
+              args: ["${CLAUDE_PROJECT_DIR}/.claude/hooks/prevent-destructive.mjs"],
+              timeout: 10,
+              statusMessage: "Checking command safety",
+            },
+          ],
+        },
+        {
+          matcher: "Write|Edit|MultiEdit",
+          hooks: [
+            {
+              type: "command",
+              command: "node",
+              args: ["${CLAUDE_PROJECT_DIR}/.claude/hooks/protect-generated.mjs"],
+              timeout: 10,
+              statusMessage: "Checking generated/noisy path safety",
+            },
+          ],
+        },
+      ],
+      PostToolUse: [
+        {
+          matcher: "Write|Edit|MultiEdit",
+          hooks: [
+            {
+              type: "command",
+              command: "node",
+              args: ["${CLAUDE_PROJECT_DIR}/.claude/hooks/suggest-validation.mjs"],
+              timeout: 10,
+              statusMessage: "Suggesting validation",
+            },
+          ],
+        },
+      ],
+    },
+    agentReady: { generatedBy: "agent-ready", project: scan.name },
+  };
+  return `${JSON.stringify(settings, null, 2)}\n`;
+}
+
+function generatePreventDestructiveHook(): string {
+  return `#!/usr/bin/env node
+import { readFileSync } from "node:fs";
+
+const input = JSON.parse(readFileSync(0, "utf8") || "{}");
+const command = String(input.tool_input?.command ?? "");
+
+const blockedPatterns = [
+  { pattern: /(^|[;&|]\\s*)rm\\s+-[^\\n;]*r[^\\n;]*f[^\\n;]*(\\/|~|\\.|\\*)?(\\s|$)/i, reason: "Blocks rm -rf style destructive deletion." },
+  { pattern: /git\\s+reset\\s+--hard/i, reason: "Blocks git reset --hard." },
+  { pattern: /git\\s+clean\\s+-[^\\n;]*f/i, reason: "Blocks git clean -f." },
+  { pattern: /git\\s+push\\s+([^\\n;]*\\s)?--force/i, reason: "Blocks force-push." },
+  { pattern: /:\\(\\)\\s*\\{\\s*:\\|:&\\s*\\};:/, reason: "Blocks fork bomb pattern." },
+];
+
+const match = blockedPatterns.find((item) => item.pattern.test(command));
+if (!match) process.exit(0);
+
+console.log(JSON.stringify({
+  hookSpecificOutput: {
+    hookEventName: "PreToolUse",
+    permissionDecision: "deny",
+    permissionDecisionReason: \`agent-ready safety hook denied command. \${match.reason} Ask the user for explicit approval and use a narrower command.\`,
+  },
+}));
+`;
+}
+
+function generateProtectGeneratedHook(): string {
+  return `#!/usr/bin/env node
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
+const input = JSON.parse(readFileSync(0, "utf8") || "{}");
+const rawPath = input.tool_input?.file_path ?? input.tool_input?.path ?? "";
+if (!rawPath) process.exit(0);
+
+const normalized = String(rawPath).replaceAll("\\\\", "/");
+const parts = normalized.split("/").filter(Boolean);
+const deniedDirs = new Set(["node_modules", ".next", ".nuxt", "dist", "build", "coverage", ".turbo", "vendor", "target", "generated"]);
+const generatedFile = /(^|\\/)generated(\\/|$)|\\.generated\\.[^/]+$/i.test(normalized);
+const noisyDir = parts.some((part) => deniedDirs.has(part));
+
+if (!generatedFile && !noisyDir) process.exit(0);
+
+console.log(JSON.stringify({
+  hookSpecificOutput: {
+    hookEventName: "PreToolUse",
+    permissionDecision: "deny",
+    permissionDecisionReason: \`agent-ready safety hook denied editing generated/noisy path: \${path.basename(normalized)}. If this is intentional, ask the user to approve and edit settings.\`,
+  },
+}));
+`;
+}
+
+function generateSuggestValidationHook(scan: ProjectScan): string {
+  const commands = [...(scan.commands.lint ?? []), ...(scan.commands.typecheck ?? []), ...(scan.commands.test ?? []), ...(scan.commands.build ?? [])].slice(0, 3);
+  const message = commands.length
+    ? `Suggested validation after edits: ${commands.map((command) => `\`${command}\``).join(", ")}. Run the narrowest relevant command before completion.`
+    : "No validation command was detected by agent-ready. Before completion, state that validation is undocumented unless the user provides a command.";
+
+  return `#!/usr/bin/env node
+import { readFileSync } from "node:fs";
+
+readFileSync(0, "utf8");
+console.log(JSON.stringify({
+  systemMessage: ${JSON.stringify(message)},
+}));
+`;
 }
 
 function generateReport(scan: ProjectScan, score: ReadinessScore): string {

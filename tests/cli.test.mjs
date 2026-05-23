@@ -65,6 +65,9 @@ test("init generates harness files and stack-specific skills", async () => {
     const nextSkill = await readFile(path.join(root, ".agent-ready", "skills", "nextjs-hydration", "SKILL.md"), "utf8");
     const supabaseSkill = await readFile(path.join(root, ".agent-ready", "skills", "supabase-debugging", "SKILL.md"), "utf8");
     const rtlSkill = await readFile(path.join(root, ".agent-ready", "skills", "rtl-ui", "SKILL.md"), "utf8");
+    const settings = JSON.parse(await readFile(path.join(root, ".claude", "settings.json"), "utf8"));
+    const destructiveHook = await readFile(path.join(root, ".claude", "hooks", "prevent-destructive.mjs"), "utf8");
+    const validationHook = await readFile(path.join(root, ".claude", "hooks", "suggest-validation.mjs"), "utf8");
 
     assert.match(claude, /Next\.js detected/);
     assert.match(codemap, /fixture-next-supabase/);
@@ -73,6 +76,9 @@ test("init generates harness files and stack-specific skills", async () => {
     assert.match(nextSkill, /hydration/i);
     assert.match(supabaseSkill, /Supabase/);
     assert.match(rtlSkill, /RTL/);
+    assert.ok(settings.hooks.PreToolUse.length > 0);
+    assert.match(destructiveHook, /permissionDecision/);
+    assert.match(validationHook, /Suggested validation after edits/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

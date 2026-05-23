@@ -30,7 +30,7 @@ Representative resolved internal imports. Read this before doing broad grep-styl
 
 ## External Dependencies in Code
 - `node:path` — used by `src/cli.ts`, `src/generators/generate.ts`, `src/scanner/scanProject.ts`, `src/utils/fs.ts`, `tests/cli.test.mjs`
-- `node:fs` — used by `src/scanner/scanProject.ts`, `src/utils/fs.ts`, `tests/cli.test.mjs`
+- `node:fs` — used by `src/generators/generate.ts`, `src/scanner/scanProject.ts`, `src/utils/fs.ts`, `tests/cli.test.mjs`
 - `node:assert` — used by `tests/cli.test.mjs`
 - `node:child_process` — used by `tests/cli.test.mjs`
 - `node:os` — used by `tests/cli.test.mjs`

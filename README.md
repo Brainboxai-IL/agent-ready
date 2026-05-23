@@ -184,7 +184,13 @@ generated/
 
 ### `.claude/settings.json`
 
-Versioned deny rules for generated/build/vendor paths so every developer gets the same baseline safety.
+Versioned deny rules and runnable Claude Code hooks so every developer gets the same baseline safety.
+
+Generated hooks include:
+
+- `PreToolUse` for `Bash` — blocks destructive commands such as `rm -rf`, `git reset --hard`, `git clean -f`, and force-pushes.
+- `PreToolUse` for `Write|Edit|MultiEdit` — blocks edits to generated/noisy paths such as `node_modules`, `dist`, `build`, `coverage`, `.next`, `vendor`, and `*.generated.*`.
+- `PostToolUse` for `Write|Edit|MultiEdit` — reminds the agent which local validation command to run after edits.
 
 ### `.agent-ready/skills/*/SKILL.md`
 
@@ -199,14 +205,17 @@ On-demand task expertise. Examples:
 
 Skills are generated only when matching project signals are detected.
 
+### `.claude/hooks/*.mjs`
+
+Runnable hook scripts wired by `.claude/settings.json`:
+
+- `.claude/hooks/prevent-destructive.mjs`
+- `.claude/hooks/protect-generated.mjs`
+- `.claude/hooks/suggest-validation.mjs`
+
 ### `.agent-ready/hooks/README.md`
 
-Starter hook policies for:
-
-- session start
-- pre-edit / pre-delete safety
-- post-edit validation
-- stop-hook learning summaries
+Human-readable hook policy notes for maintainers. The actual Claude Code hooks are generated under `.claude/hooks` and wired in `.claude/settings.json`.
 
 ### Workspace `CLAUDE.md` files
 
@@ -272,7 +281,8 @@ This makes `CODEMAP.md` useful as a code navigation artifact, not just a formatt
 
 - **No overwrite by default** — existing files produce `*.agent-ready-proposed`.
 - **Dry-run supported** — preview before writing.
-- **Generated noise is denied** — build/vendor/generated paths are excluded.
+- **Runnable hooks generated** — safety checks are wired in `.claude/settings.json`, not just described in documentation.
+- **Generated noise is denied** — build/vendor/generated paths are excluded and protected by a `PreToolUse` hook.
 - **Root context stays lean** — deep knowledge goes into skills.
 - **Local validation preferred** — workspace commands are favored over full-repo commands.
 - **No self-inflating score** — generated files are not counted as maintainer-authored readiness until reviewed/customized.
@@ -283,7 +293,7 @@ This makes `CODEMAP.md` useful as a code navigation artifact, not just a formatt
 
 - Detection can miss custom frameworks, unusual scripts, and non-standard repository layouts.
 - Generated files are a strong starting point, not a replacement for maintainer review.
-- Static code understanding currently focuses on JavaScript/TypeScript import graphs.
+- Static code understanding currently focuses on JavaScript/TypeScript import graphs; Python/Go/Rust/PHP/etc. are detected but do not yet get import graph mapping.
 - It does not yet perform deep semantic analysis of README files, CI workflows, environment variables, or architecture docs.
 - It does not upload code or call remote AI services.
 - It is not affiliated with or endorsed by Anthropic.
