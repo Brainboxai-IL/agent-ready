@@ -351,6 +351,12 @@ Type-check:
 npm run check
 ```
 
+Run tests:
+
+```bash
+npm test
+```
+
 Build:
 
 ```bash
