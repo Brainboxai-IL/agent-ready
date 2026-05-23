@@ -1,0 +1,37 @@
+{
+  "name": "agent-ready",
+  "version": "0.1.0",
+  "description": "Generate an AI-agent harness for any codebase: CLAUDE.md, CODEMAP.md, skills, ignore rules, and readiness reports.",
+  "type": "module",
+  "bin": {
+    "agent-ready": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/cli.ts",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "lint": "tsc -p tsconfig.json --noEmit"
+  },
+  "keywords": [
+    "ai-agents",
+    "claude-code",
+    "codemap",
+    "developer-tools",
+    "cli"
+  ],
+  "author": "BrainboxAI",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Brainboxai-IL/agent-ready.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Brainboxai-IL/agent-ready/issues"
+  },
+  "homepage": "https://github.com/Brainboxai-IL/agent-ready#readme",
+  "devDependencies": {
+    "@types/node": "latest",
+    "tsx": "latest",
+    "typescript": "latest"
+  }
+}
