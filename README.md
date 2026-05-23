@@ -23,7 +23,11 @@
 
 It is designed for real repositories—not demo apps. Use it on small apps, legacy codebases, monorepos, service folders, or projects that need a clean onboarding layer for Claude Code and other agentic coding tools.
 
-The project was inspired by Anthropic's article ["How Claude Code works in large codebases: best practices and where to start"](https://claude.com/blog/how-claude-code-works-in-large-codebases-best-practices-and-where-to-start), especially its emphasis on lean `CLAUDE.md` files, codebase maps, skills, hooks, MCP, LSP, and scoped agent context.
+> [!NOTE]
+> **Inspired by Anthropic's Claude Code large-codebase guidance**  
+> This project was created after studying Anthropic's article:  
+> [**How Claude Code works in large codebases: best practices and where to start**](https://claude.com/blog/how-claude-code-works-in-large-codebases-best-practices-and-where-to-start).  
+> `agent-ready` turns those ideas—lean `CLAUDE.md` files, codebase maps, skills, hooks, MCP, LSP, scoped context, and subagent-friendly workflows—into a repeatable CLI workflow.
 
 ## Table of Contents
 
@@ -364,9 +368,19 @@ BrainboxAI builds practical AI-agent infrastructure: tools, workflows, and autom
 
 ## Acknowledgements
 
-`agent-ready` was created after studying Anthropic's guidance on making large codebases navigable for Claude Code. The core idea is to turn those best practices into a repeatable CLI workflow: scan the repo, generate lean context, map the codebase, separate reusable expertise into skills, and document safe validation paths.
+`agent-ready` was created after studying Anthropic's guidance on making large codebases navigable for Claude Code.
 
-Reference: [How Claude Code works in large codebases: best practices and where to start](https://claude.com/blog/how-claude-code-works-in-large-codebases-best-practices-and-where-to-start).
+> **Reference article**  
+> [How Claude Code works in large codebases: best practices and where to start](https://claude.com/blog/how-claude-code-works-in-large-codebases-best-practices-and-where-to-start) — Anthropic.
+
+The core idea is to turn those best practices into a repeatable CLI workflow:
+
+- scan the repository
+- generate lean, layered context
+- map the codebase before broad search
+- separate reusable expertise into skills
+- document hooks, validation paths, MCP, and LSP recommendations
+- keep generated/build/vendor noise away from agents
 
 This project is independent and is not affiliated with or endorsed by Anthropic.
 
