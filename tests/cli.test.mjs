@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { execFile } from "node:child_process";
@@ -92,6 +92,37 @@ test("generated harness files do not count as maintainer-authored readiness", as
 
     assert.match(stdout, /existing file is agent-ready generated/);
     assert.match(stdout, /not counted as maintainer-authored readiness/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("builds Python, Go, and Rust import graph", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "agent-ready-polyglot-"));
+  try {
+    await writeFile(path.join(root, "package.json"), JSON.stringify({ name: "polyglot" }, null, 2));
+
+    await mkdir(path.join(root, "src", "pkg"), { recursive: true });
+    await writeFile(path.join(root, "src", "main.py"), "from .pkg import helper\nprint(helper.value())\n");
+    await writeFile(path.join(root, "src", "pkg", "__init__.py"), "from .helper import value\n");
+    await writeFile(path.join(root, "src", "pkg", "helper.py"), "def value(): return 1\n");
+
+    await mkdir(path.join(root, "internal", "calc"), { recursive: true });
+    await writeFile(path.join(root, "go.mod"), "module example.com/polyglot\n");
+    await writeFile(path.join(root, "main.go"), "package main\nimport \"example.com/polyglot/internal/calc\"\nfunc main(){ calc.Value() }\n");
+    await writeFile(path.join(root, "internal", "calc", "calc.go"), "package calc\nfunc Value() int { return 1 }\n");
+
+    await mkdir(path.join(root, "src", "core"), { recursive: true });
+    await writeFile(path.join(root, "src", "lib.rs"), "pub mod core;\nuse crate::core::thing;\n");
+    await writeFile(path.join(root, "src", "core", "mod.rs"), "pub mod thing;\n");
+    await writeFile(path.join(root, "src", "core", "thing.rs"), "pub fn value() -> i32 { 1 }\n");
+
+    await execFileAsync("node", [cliPath, "init", root]);
+    const codemap = await readFile(path.join(root, "CODEMAP.md"), "utf8");
+
+    assert.match(codemap, /`src\/main\.py` → `src\/pkg\/__init__\.py`/);
+    assert.match(codemap, /`main\.go` → `internal\/calc\/calc\.go`/);
+    assert.match(codemap, /`src\/lib\.rs` → `src\/core\/mod\.rs`/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

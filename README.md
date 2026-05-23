@@ -14,7 +14,7 @@
 
 <p align="center">
   <img alt="Status" src="https://img.shields.io/badge/status-experimental-f59e0b?style=flat-square" />
-  <img alt="Version" src="https://img.shields.io/badge/version-0.1.1-111827?style=flat-square" />
+  <img alt="Version" src="https://img.shields.io/badge/version-0.2.0-111827?style=flat-square" />
   <img alt="License" src="https://img.shields.io/badge/license-MIT-0f766e?style=flat-square" />
   <img alt="Runtime" src="https://img.shields.io/badge/runtime-Node.js-3c873a?style=flat-square" />
   <img alt="Built by BrainboxAI" src="https://img.shields.io/badge/by-BrainboxAI-111827?style=flat-square" />
@@ -265,11 +265,14 @@ Current detection includes:
 
 ## Code Understanding
 
-`agent-ready` is moving beyond boilerplate generation. It now builds a lightweight static map of JavaScript and TypeScript projects:
+`agent-ready` is moving beyond boilerplate generation. It now builds a lightweight static map for JavaScript, TypeScript, Python, Go, and Rust projects:
 
 - package/script entry points
-- common CLI, server, app, and route files
-- resolved relative imports, including TypeScript source imported with runtime `.js` specifiers
+- common CLI, server, app, route, Python, Go, and Rust entry files
+- JS/TS imports, including TypeScript source imported with runtime `.js` specifiers
+- Python `import` / `from ... import ...` relationships, including relative modules
+- Go imports resolved through the local `go.mod` module path
+- Rust `mod` declarations and basic `crate::` / `self::` / `super::` use paths
 - central files ranked by inbound imports
 - external packages imported by source files
 
@@ -293,7 +296,7 @@ This makes `CODEMAP.md` useful as a code navigation artifact, not just a formatt
 
 - Detection can miss custom frameworks, unusual scripts, and non-standard repository layouts.
 - Generated files are a strong starting point, not a replacement for maintainer review.
-- Static code understanding currently focuses on JavaScript/TypeScript import graphs; Python/Go/Rust/PHP/etc. are detected but do not yet get import graph mapping.
+- Static code understanding covers JS/TS plus first-pass Python/Go/Rust import graphs. PHP/Java/C#/C/C++ are detected but do not yet get import graph mapping.
 - It does not yet perform deep semantic analysis of README files, CI workflows, environment variables, or architecture docs.
 - It does not upload code or call remote AI services.
 - It is not affiliated with or endorsed by Anthropic.

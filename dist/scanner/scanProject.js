@@ -268,11 +268,12 @@ async function harnessFileState(root, relativePath) {
 }
 async function analyzeCodeGraph(root, files, packages) {
     const sourceFiles = files
-        .filter((file) => /\.(tsx?|jsx?|mjs|cjs)$/.test(file))
+        .filter((file) => /\.(tsx?|jsx?|mjs|cjs|py|go|rs)$/.test(file))
         .filter((file) => !file.endsWith(".d.ts"))
-        .filter((file) => !file.includes(`${path.sep}dist${path.sep}`) && !file.includes(`${path.sep}node_modules${path.sep}`))
-        .slice(0, 1200);
+        .filter((file) => !file.includes(`${path.sep}dist${path.sep}`) && !file.includes(`${path.sep}node_modules${path.sep}`) && !file.includes(`${path.sep}target${path.sep}`))
+        .slice(0, 2000);
     const sourceSet = new Set(sourceFiles.map((file) => rel(root, file)));
+    const goModulePath = await readGoModulePath(root);
     const entryPoints = detectEntryPoints(root, packages, sourceSet);
     const importEdges = [];
     const externalImportMap = new Map();
@@ -281,10 +282,13 @@ async function analyzeCodeGraph(root, files, packages) {
         if (!text)
             continue;
         const from = rel(root, file);
-        for (const specifier of extractImportSpecifiers(text)) {
-            if (specifier.startsWith(".")) {
-                const resolved = resolveRelativeImport(root, from, specifier, sourceSet);
-                importEdges.push({ from, to: resolved ?? specifier, specifier, resolved: Boolean(resolved) });
+        for (const specifier of extractImportSpecifiers(text, from)) {
+            const resolved = resolveImport(from, specifier, sourceSet, goModulePath);
+            if (resolved) {
+                importEdges.push({ from, to: resolved, specifier, resolved: true });
+            }
+            else if (isProbablyLocalSpecifier(specifier, from, sourceSet, goModulePath)) {
+                importEdges.push({ from, to: specifier, specifier, resolved: false });
             }
             else {
                 const packageName = externalPackageName(specifier);
@@ -342,6 +346,13 @@ function detectEntryPoints(root, packages, sourceSet) {
             ["app/layout.tsx", "Next.js layout", "App Router layout"],
             ["src/app/page.tsx", "Next.js route", "App Router page"],
             ["pages/index.tsx", "Next.js route", "Pages Router index"],
+            ["main.py", "Python entry", "conventional Python entry"],
+            ["app.py", "Python app", "conventional Python app entry"],
+            ["src/main.py", "Python entry", "conventional Python entry"],
+            ["cmd/main.go", "Go command", "conventional Go command entry"],
+            ["main.go", "Go command", "conventional Go command entry"],
+            ["src/main.rs", "Rust binary", "conventional Rust binary entry"],
+            ["src/lib.rs", "Rust library", "conventional Rust library entry"],
         ];
         for (const [candidate, kind, reason] of candidates) {
             const file = `${packageRoot}${candidate}`;
@@ -356,6 +367,10 @@ function detectEntryPoints(root, packages, sourceSet) {
                 entries.set(source, { path: source, kind: "API route", reason: "Next.js API route" });
             if (/^app\/.+\/(page|route)\.(tsx?|jsx?)$/.test(local))
                 entries.set(source, { path: source, kind: "Next.js route", reason: "App Router route/page" });
+            if (/^cmd\/[^/]+\/main\.go$/.test(local))
+                entries.set(source, { path: source, kind: "Go command", reason: "cmd/*/main.go" });
+            if (/^src\/bin\/[^/]+\.rs$/.test(local))
+                entries.set(source, { path: source, kind: "Rust binary", reason: "Cargo src/bin entry" });
         }
         if (/tsx\s+src\/cli\.ts|node\s+dist\/cli\.js/.test(scripts)) {
             const cli = `${packageRoot}src/cli.ts`;
@@ -365,43 +380,144 @@ function detectEntryPoints(root, packages, sourceSet) {
     }
     return [...entries.values()].sort((a, b) => a.path.localeCompare(b.path)).slice(0, 40);
 }
-function extractImportSpecifiers(text) {
+function extractImportSpecifiers(text, from) {
     const specifiers = new Set();
-    const patterns = [
-        /import\s+(?:type\s+)?(?:[^'";]+?\s+from\s+)?["']([^"']+)["']/g,
-        /export\s+(?:type\s+)?(?:[^'";]+?\s+from\s+)["']([^"']+)["']/g,
-        /import\(\s*["']([^"']+)["']\s*\)/g,
-        /require\(\s*["']([^"']+)["']\s*\)/g,
-    ];
-    for (const pattern of patterns) {
-        for (const match of text.matchAll(pattern))
+    const ext = path.posix.extname(from);
+    if (/\.(tsx?|jsx?|mjs|cjs)$/.test(ext)) {
+        const patterns = [
+            /import\s+(?:type\s+)?(?:[^'";]+?\s+from\s+)?["']([^"']+)["']/g,
+            /export\s+(?:type\s+)?(?:[^'";]+?\s+from\s+)["']([^"']+)["']/g,
+            /import\(\s*["']([^"']+)["']\s*\)/g,
+            /require\(\s*["']([^"']+)["']\s*\)/g,
+        ];
+        for (const pattern of patterns)
+            for (const match of text.matchAll(pattern))
+                specifiers.add(match[1]);
+    }
+    if (ext === ".py") {
+        for (const match of text.matchAll(/^\s*import\s+([\w.]+)(?:\s+as\s+\w+)?/gm))
             specifiers.add(match[1]);
+        for (const match of text.matchAll(/^\s*from\s+([\w.]+|\.+[\w.]*)\s+import\s+([\w*,\s]+)/gm)) {
+            const moduleName = match[1];
+            const imported = match[2].split(",").map((item) => item.trim().split(/\s+as\s+/)[0]).filter(Boolean);
+            specifiers.add(moduleName);
+            if (moduleName.startsWith("."))
+                for (const item of imported)
+                    if (item !== "*" && /^[A-Za-z_]\w*$/.test(item))
+                        specifiers.add(`${moduleName}.${item}`);
+        }
+    }
+    if (ext === ".go") {
+        for (const match of text.matchAll(/import\s+(?:[\w.]+\s+)?"([^"]+)"/g))
+            specifiers.add(match[1]);
+        for (const block of text.matchAll(/import\s*\(([^)]+)\)/gs)) {
+            for (const match of block[1].matchAll(/(?:[\w.]+\s+)?"([^"]+)"/g))
+                specifiers.add(match[1]);
+        }
+    }
+    if (ext === ".rs") {
+        for (const match of text.matchAll(/^\s*(?:pub\s+)?mod\s+([A-Za-z_]\w*)\s*;/gm))
+            specifiers.add(`./${match[1]}`);
+        for (const match of text.matchAll(/^\s*(?:pub\s+)?use\s+([^;]+);/gm)) {
+            const first = match[1].trim().split(/::|\s+/)[0];
+            if (first)
+                specifiers.add(match[1].trim());
+        }
     }
     return [...specifiers];
 }
-function resolveRelativeImport(root, from, specifier, sourceSet) {
+async function readGoModulePath(root) {
+    const goMod = await readText(path.join(root, "go.mod"));
+    return goMod?.match(/^module\s+(.+)$/m)?.[1]?.trim();
+}
+function resolveImport(from, specifier, sourceSet, goModulePath) {
+    const ext = path.posix.extname(from);
+    if (specifier.startsWith("."))
+        return resolveRelativeLikeImport(from, specifier, sourceSet, ext);
+    if (ext === ".py")
+        return resolvePythonAbsoluteImport(specifier, sourceSet);
+    if (ext === ".go" && goModulePath && specifier.startsWith(`${goModulePath}/`))
+        return resolveGoModuleImport(specifier.slice(goModulePath.length + 1), sourceSet);
+    if (ext === ".rs" && /^(crate|self|super)::/.test(specifier))
+        return resolveRustPathImport(from, specifier, sourceSet);
+    return undefined;
+}
+function resolveRelativeLikeImport(from, specifier, sourceSet, ext) {
+    if (ext === ".py")
+        return resolvePythonRelativeImport(from, specifier, sourceSet);
     const fromDir = path.posix.dirname(from);
     const base = path.posix.normalize(path.posix.join(fromDir, specifier));
     const withoutJsRuntimeExt = base.replace(/\.(js|mjs|cjs|jsx)$/, "");
     const candidates = [
         base,
         withoutJsRuntimeExt,
-        `${withoutJsRuntimeExt}.ts`,
-        `${withoutJsRuntimeExt}.tsx`,
-        `${withoutJsRuntimeExt}.js`,
-        `${withoutJsRuntimeExt}.jsx`,
-        `${withoutJsRuntimeExt}.mjs`,
-        `${withoutJsRuntimeExt}.cjs`,
-        `${withoutJsRuntimeExt}/index.ts`,
-        `${withoutJsRuntimeExt}/index.tsx`,
-        `${withoutJsRuntimeExt}/index.js`,
-        `${withoutJsRuntimeExt}/index.jsx`,
+        `${withoutJsRuntimeExt}.ts`, `${withoutJsRuntimeExt}.tsx`, `${withoutJsRuntimeExt}.js`, `${withoutJsRuntimeExt}.jsx`, `${withoutJsRuntimeExt}.mjs`, `${withoutJsRuntimeExt}.cjs`,
+        `${withoutJsRuntimeExt}.py`, `${withoutJsRuntimeExt}.go`, `${withoutJsRuntimeExt}.rs`,
+        `${withoutJsRuntimeExt}/index.ts`, `${withoutJsRuntimeExt}/index.tsx`, `${withoutJsRuntimeExt}/index.js`, `${withoutJsRuntimeExt}/index.jsx`,
+        `${withoutJsRuntimeExt}/__init__.py`, `${withoutJsRuntimeExt}/mod.rs`,
     ];
     return [...new Set(candidates)].find((candidate) => sourceSet.has(candidate));
+}
+function resolvePythonRelativeImport(from, specifier, sourceSet) {
+    const leadingDots = specifier.match(/^\.+/)?.[0].length ?? 0;
+    const rest = specifier.slice(leadingDots).replaceAll(".", "/");
+    let dir = path.posix.dirname(from);
+    for (let i = 1; i < leadingDots; i += 1)
+        dir = path.posix.dirname(dir);
+    const base = rest ? path.posix.join(dir, rest) : dir;
+    return resolvePythonModulePath(base, sourceSet);
+}
+function resolvePythonAbsoluteImport(specifier, sourceSet) {
+    const modulePath = specifier.replaceAll(".", "/");
+    return resolvePythonModulePath(modulePath, sourceSet) ?? resolvePythonModulePath(`src/${modulePath}`, sourceSet);
+}
+function resolvePythonModulePath(base, sourceSet) {
+    const candidates = [`${base}.py`, `${base}/__init__.py`];
+    return candidates.find((candidate) => sourceSet.has(candidate));
+}
+function resolveGoModuleImport(localPath, sourceSet) {
+    const normalized = localPath.replace(/^\/+/, "");
+    const candidates = [...sourceSet].filter((file) => file.startsWith(`${normalized}/`) && file.endsWith(".go") && !file.endsWith("_test.go"));
+    return candidates.sort()[0];
+}
+function resolveRustPathImport(from, specifier, sourceSet) {
+    const parts = specifier.split("::").map((part) => part.replace(/[{}*\s].*$/, "")).filter(Boolean);
+    const scope = parts.shift();
+    let baseParts = parts;
+    if (scope === "crate") {
+        // crate::foo::bar usually maps from src/foo/bar.rs or src/foo.rs.
+    }
+    else if (scope === "self") {
+        const dir = path.posix.dirname(from);
+        const base = path.posix.join(dir, ...baseParts);
+        return resolveRustModulePath(base, sourceSet);
+    }
+    else if (scope === "super") {
+        const dir = path.posix.dirname(path.posix.dirname(from));
+        const base = path.posix.join(dir, ...baseParts);
+        return resolveRustModulePath(base, sourceSet);
+    }
+    else {
+        baseParts = [scope ?? "", ...baseParts].filter(Boolean);
+    }
+    const base = path.posix.join("src", ...baseParts);
+    return resolveRustModulePath(base, sourceSet);
+}
+function resolveRustModulePath(base, sourceSet) {
+    const candidates = [`${base}.rs`, `${base}/mod.rs`, `${base}/lib.rs`];
+    return candidates.find((candidate) => sourceSet.has(candidate));
+}
+function isProbablyLocalSpecifier(specifier, from, sourceSet, goModulePath) {
+    const ext = path.posix.extname(from);
+    return specifier.startsWith(".") || (ext === ".go" && Boolean(goModulePath && specifier.startsWith(`${goModulePath}/`))) || (ext === ".rs" && /^(crate|self|super)::/.test(specifier)) || (ext === ".py" && Boolean(resolvePythonAbsoluteImport(specifier, sourceSet)));
 }
 function externalPackageName(specifier) {
     if (specifier.startsWith("@"))
         return specifier.split("/").slice(0, 2).join("/");
+    if (specifier.includes("::"))
+        return specifier.split("::")[0];
+    if (specifier.includes("."))
+        return specifier.split(".")[0];
     return specifier.split("/")[0];
 }
 function detectNoisyPaths(files) {
