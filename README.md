@@ -13,6 +13,7 @@
 </p>
 
 <p align="center">
+  <img alt="Status" src="https://img.shields.io/badge/status-experimental-f59e0b?style=flat-square" />
   <img alt="Version" src="https://img.shields.io/badge/version-0.1.0-111827?style=flat-square" />
   <img alt="License" src="https://img.shields.io/badge/license-MIT-0f766e?style=flat-square" />
   <img alt="Runtime" src="https://img.shields.io/badge/runtime-Node.js-3c873a?style=flat-square" />
@@ -22,6 +23,9 @@
 `agent-ready` is a CLI by **BrainboxAI** that scans a project and generates the harness AI coding agents need to work safely and effectively: context files, code maps, ignore rules, skills, hook templates, and readiness reports.
 
 It is designed for real repositories—not demo apps. Use it on small apps, legacy codebases, monorepos, service folders, or projects that need a clean onboarding layer for Claude Code and other agentic coding tools.
+
+> [!WARNING]
+> `agent-ready` is an **experimental early preview**. It is useful today, but its repository detection is heuristic and generated files should be reviewed before committing.
 
 > [!NOTE]
 > **Inspired by Anthropic's Claude Code large-codebase guidance**  
@@ -38,6 +42,7 @@ It is designed for real repositories—not demo apps. Use it on small apps, lega
 - [How it Works](#how-it-works)
 - [Detected Project Signals](#detected-project-signals)
 - [Safety Model](#safety-model)
+- [Limitations](#limitations)
 - [Example Output](#example-output)
 - [CLI Reference](#cli-reference)
 - [Development](#development)
@@ -79,7 +84,7 @@ apps/*/CLAUDE.md             # generated for detected monorepo workspaces
 ### From source
 
 ```bash
-git clone <repo-url> agent-ready
+git clone https://github.com/Brainboxai-IL/agent-ready.git agent-ready
 cd agent-ready
 npm install
 npm run build
@@ -251,6 +256,16 @@ Current detection includes:
 - **Generated noise is denied** — build/vendor/generated paths are excluded.
 - **Root context stays lean** — deep knowledge goes into skills.
 - **Local validation preferred** — workspace commands are favored over full-repo commands.
+
+## Limitations
+
+`agent-ready` is intentionally conservative and heuristic.
+
+- Detection can miss custom frameworks, unusual scripts, and non-standard repository layouts.
+- Generated files are a strong starting point, not a replacement for maintainer review.
+- It does not yet perform deep semantic analysis of README files, CI workflows, environment variables, or architecture docs.
+- It does not upload code or call remote AI services.
+- It is not affiliated with or endorsed by Anthropic.
 
 ## Example Output
 
