@@ -23,6 +23,8 @@
 
 It is designed for real repositories—not demo apps. Use it on small apps, legacy codebases, monorepos, service folders, or projects that need a clean onboarding layer for Claude Code and other agentic coding tools.
 
+The project was inspired by Anthropic's article ["How Claude Code works in large codebases: best practices and where to start"](https://claude.com/blog/how-claude-code-works-in-large-codebases-best-practices-and-where-to-start), especially its emphasis on lean `CLAUDE.md` files, codebase maps, skills, hooks, MCP, LSP, and scoped agent context.
+
 ## Table of Contents
 
 - [Why agent-ready](#why-agent-ready)
@@ -37,6 +39,7 @@ It is designed for real repositories—not demo apps. Use it on small apps, lega
 - [Development](#development)
 - [Roadmap](#roadmap)
 - [Brand](#brand)
+- [Acknowledgements](#acknowledgements)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -358,6 +361,14 @@ Planned improvements:
 `agent-ready` is built by **BrainboxAI**.
 
 BrainboxAI builds practical AI-agent infrastructure: tools, workflows, and automation systems that help teams move from ad-hoc prompting to reliable agent operations.
+
+## Acknowledgements
+
+`agent-ready` was created after studying Anthropic's guidance on making large codebases navigable for Claude Code. The core idea is to turn those best practices into a repeatable CLI workflow: scan the repo, generate lean context, map the codebase, separate reusable expertise into skills, and document safe validation paths.
+
+Reference: [How Claude Code works in large codebases: best practices and where to start](https://claude.com/blog/how-claude-code-works-in-large-codebases-best-practices-and-where-to-start).
+
+This project is independent and is not affiliated with or endorsed by Anthropic.
 
 ## Contributing
 
