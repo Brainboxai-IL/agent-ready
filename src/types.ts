@@ -28,6 +28,7 @@ export interface ProjectScan {
   importantDirs: DirectorySummary[];
   noisyPaths: string[];
   existingHarness: ExistingHarness;
+  codeGraph: CodeGraph;
   traits: {
     hasHebrewOrRtl: boolean;
     hasDocker: boolean;
@@ -44,11 +45,49 @@ export interface DirectorySummary {
 }
 
 export interface ExistingHarness {
-  claudeMd: boolean;
-  codemap: boolean;
-  aiIgnore: boolean;
-  claudeSettings: boolean;
+  claudeMd: HarnessFileState;
+  codemap: HarnessFileState;
+  aiIgnore: HarnessFileState;
+  claudeSettings: HarnessFileState;
   skillsDir: boolean;
+}
+
+export interface HarnessFileState {
+  exists: boolean;
+  generatedByAgentReady: boolean;
+  countsAsMaintainerAuthored: boolean;
+}
+
+export interface CodeGraph {
+  entryPoints: EntryPoint[];
+  importEdges: ImportEdge[];
+  centralFiles: CentralFile[];
+  externalImports: ExternalImport[];
+  unresolvedRelativeImports: ImportEdge[];
+}
+
+export interface EntryPoint {
+  path: string;
+  kind: string;
+  reason: string;
+}
+
+export interface ImportEdge {
+  from: string;
+  to: string;
+  specifier: string;
+  resolved: boolean;
+}
+
+export interface CentralFile {
+  path: string;
+  inbound: number;
+  outbound: number;
+}
+
+export interface ExternalImport {
+  packageName: string;
+  importedBy: string[];
 }
 
 export interface GeneratedFile {

@@ -15,6 +15,7 @@ These are safe starter hook policies. Wire them into your agent harness only aft
 - Run or suggest the narrowest relevant validation command.
 - Lint candidate: `npm run lint`
 - Typecheck candidate: `npm run check`
+- Test candidate: `npm run test`
 
 ## Stop Hook
 - Summarize what changed and what was validated.

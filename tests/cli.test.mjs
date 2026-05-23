@@ -38,7 +38,8 @@ async function createFixture() {
     )
   );
   await writeFile(path.join(root, "next.config.ts"), "export default {};\n");
-  await writeFile(path.join(root, "page.tsx"), "export default function Page() { return <main dir=\"rtl\">שלום</main>; }\n");
+  await writeFile(path.join(root, "utils.ts"), "export function title() { return 'שלום'; }\n");
+  await writeFile(path.join(root, "page.tsx"), "import { title } from './utils.js';\nexport default function Page() { return <main dir=\"rtl\">{title()}</main>; }\n");
   return root;
 }
 
@@ -67,9 +68,24 @@ test("init generates harness files and stack-specific skills", async () => {
 
     assert.match(claude, /Next\.js detected/);
     assert.match(codemap, /fixture-next-supabase/);
+    assert.match(codemap, /Internal Import Graph/);
+    assert.match(codemap, /`page\.tsx` → `utils\.ts`/);
     assert.match(nextSkill, /hydration/i);
     assert.match(supabaseSkill, /Supabase/);
     assert.match(rtlSkill, /RTL/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("generated harness files do not count as maintainer-authored readiness", async () => {
+  const root = await createFixture();
+  try {
+    await execFileAsync("node", [cliPath, "init", root]);
+    const { stdout } = await execFileAsync("node", [cliPath, "analyze", root]);
+
+    assert.match(stdout, /existing file is agent-ready generated/);
+    assert.match(stdout, /not counted as maintainer-authored readiness/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

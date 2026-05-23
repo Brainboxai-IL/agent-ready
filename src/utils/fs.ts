@@ -10,6 +10,8 @@ export const DEFAULT_IGNORES = new Set([
   "build",
   "coverage",
   ".turbo",
+  ".agent-ready",
+  ".claude",
   ".cache",
   ".venv",
   "venv",

@@ -41,6 +41,7 @@ It is designed for real repositories—not demo apps. Use it on small apps, lega
 - [What it Generates](#what-it-generates)
 - [How it Works](#how-it-works)
 - [Detected Project Signals](#detected-project-signals)
+- [Code Understanding](#code-understanding)
 - [Safety Model](#safety-model)
 - [Limitations](#limitations)
 - [Example Output](#example-output)
@@ -156,6 +157,10 @@ It is intentionally short. Task-specific expertise is placed in skills instead o
 
 A navigation map for agents before broad search:
 
+- detected entry points
+- central files by internal import usage
+- representative internal import graph
+- external dependencies used in source files
 - top-level directory purpose
 - workspace/package manifests
 - search guidance
@@ -232,6 +237,8 @@ The scanner detects:
 
 Then it generates a practical agent harness and assigns an **Agent Readiness Score**.
 
+Important: the score does **not** give full credit for files that `agent-ready` generated itself. Generated files are treated as a baseline. They only become readiness signal after maintainers review and customize them.
+
 ## Detected Project Signals
 
 Current detection includes:
@@ -247,6 +254,18 @@ Current detection includes:
 | UI traits | Hebrew/RTL detection |
 | Validation | build, test, lint, typecheck, format scripts |
 
+## Code Understanding
+
+`agent-ready` is moving beyond boilerplate generation. It now builds a lightweight static map of JavaScript and TypeScript projects:
+
+- package/script entry points
+- common CLI, server, app, and route files
+- resolved relative imports, including TypeScript source imported with runtime `.js` specifiers
+- central files ranked by inbound imports
+- external packages imported by source files
+
+This makes `CODEMAP.md` useful as a code navigation artifact, not just a formatted directory listing.
+
 ## Safety Model
 
 `agent-ready` is conservative by default.
@@ -256,6 +275,7 @@ Current detection includes:
 - **Generated noise is denied** — build/vendor/generated paths are excluded.
 - **Root context stays lean** — deep knowledge goes into skills.
 - **Local validation preferred** — workspace commands are favored over full-repo commands.
+- **No self-inflating score** — generated files are not counted as maintainer-authored readiness until reviewed/customized.
 
 ## Limitations
 
@@ -263,6 +283,7 @@ Current detection includes:
 
 - Detection can miss custom frameworks, unusual scripts, and non-standard repository layouts.
 - Generated files are a strong starting point, not a replacement for maintainer review.
+- Static code understanding currently focuses on JavaScript/TypeScript import graphs.
 - It does not yet perform deep semantic analysis of README files, CI workflows, environment variables, or architecture docs.
 - It does not upload code or call remote AI services.
 - It is not affiliated with or endorsed by Anthropic.

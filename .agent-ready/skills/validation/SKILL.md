@@ -7,6 +7,8 @@ Description: Use after code edits or before declaring a task complete.
 - `npm run dev`
 - build:
 - `npm run build`
+- test:
+- `npm run test`
 - lint:
 - `npm run lint`
 - typecheck:

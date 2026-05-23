@@ -51,6 +51,8 @@ function printSummary(scan, score) {
     console.log(`Databases/tools: ${scan.databases.join(", ") || "none detected"}`);
     console.log(`Deployment: ${scan.deployment.join(", ") || "none detected"}`);
     console.log(`Monorepo: ${scan.monorepo.detected ? `yes (${scan.monorepo.tools.join(", ") || "multiple packages"})` : "no/unclear"}`);
+    console.log(`Entry points: ${scan.codeGraph.entryPoints.length}`);
+    console.log(`Resolved internal imports: ${scan.codeGraph.importEdges.length}`);
     if (score.missing.length) {
         console.log("\nMissing:");
         for (const item of score.missing)
