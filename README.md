@@ -82,6 +82,20 @@ apps/*/CLAUDE.md             # generated for detected monorepo workspaces
 
 ## Install
 
+### Run with npx
+
+```bash
+npx agent-ready analyze .
+npx agent-ready init . --dry-run
+```
+
+### Install globally
+
+```bash
+npm install -g agent-ready
+agent-ready analyze .
+```
+
 ### From source
 
 ```bash
@@ -89,22 +103,10 @@ git clone https://github.com/Brainboxai-IL/agent-ready.git agent-ready
 cd agent-ready
 npm install
 npm run build
-```
-
-Run the compiled CLI:
-
-```bash
 node dist/cli.js analyze .
 ```
 
-### As a linked local CLI
-
-```bash
-npm link
-agent-ready analyze .
-```
-
-> npm package publishing is planned. Until then, use the source or local link workflow.
+> The npm package is prepared for publishing. If `npx agent-ready` is not available yet, publish with `npm publish --access public` from an authenticated npm account.
 
 ## Quick Start
 
