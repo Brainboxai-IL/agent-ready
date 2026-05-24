@@ -429,7 +429,6 @@ Planned improvements:
 - richer monorepo workspace detection
 - generated `CONTRIBUTING.md` and `SECURITY.md` templates
 - optional AI-assisted repository summary mode
-- npm package release
 - plugin/export presets for Claude Code, Cursor, Codex, and other agents
 - CI mode for failing builds when agent readiness drops below a threshold
 
