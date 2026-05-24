@@ -9,6 +9,8 @@ export interface PackageInfo {
   dependencies: Record<string, string>;
   devDependencies: Record<string, string>;
   workspaces?: string[];
+  /** Package-relative file paths declared in package.json `bin` (the canonical Node CLI entry points). */
+  bin?: string[];
 }
 
 export interface ProjectScan {

@@ -269,6 +269,119 @@ test("uses a leading blockquote tagline as the description", async () => {
   }
 });
 
+test("detects entry points in a Rust project without package.json", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "agent-ready-rust-"));
+  try {
+    await writeFile(path.join(root, "Cargo.toml"), '[package]\nname = "crate-app"\nversion = "0.1.0"\n');
+    await mkdir(path.join(root, "src"), { recursive: true });
+    await writeFile(path.join(root, "src", "main.rs"), 'fn main() { println!("hi"); }\n');
+    await writeFile(path.join(root, "src", "lib.rs"), "pub fn value() -> i32 { 1 }\n");
+
+    const { stdout } = await execFileAsync("node", [cliPath, "analyze", root]);
+    assert.doesNotMatch(stdout, /Entry points: 0/);
+
+    await execFileAsync("node", [cliPath, "init", root]);
+    const codemap = await readFile(path.join(root, "CODEMAP.md"), "utf8");
+    assert.match(codemap, /`src\/main\.rs` — Rust binary/);
+    assert.match(codemap, /`src\/lib\.rs` — Rust library/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("detects package.json bin as a CLI entry point even though bin/ is walk-ignored", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "agent-ready-bin-"));
+  try {
+    await writeFile(
+      path.join(root, "package.json"),
+      JSON.stringify({ name: "bin-app", type: "module", bin: { "bin-app": "bin/cli.js" } }, null, 2)
+    );
+    await mkdir(path.join(root, "bin"), { recursive: true });
+    await writeFile(path.join(root, "bin", "cli.js"), "console.log('hi');\n");
+
+    await execFileAsync("node", [cliPath, "init", root]);
+    const codemap = await readFile(path.join(root, "CODEMAP.md"), "utf8");
+    assert.match(codemap, /`bin\/cli\.js` — CLI binary; package\.json bin entry/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("detects Python entry points from pyproject.toml console scripts", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "agent-ready-pyproj-"));
+  try {
+    await writeFile(
+      path.join(root, "pyproject.toml"),
+      ['[project]', 'name = "tool-app"', "", "[project.scripts]", 'tool-app = "tool_app:main"'].join("\n")
+    );
+    await writeFile(path.join(root, "tool_app.py"), "def main():\n    print('hi')\n");
+
+    await execFileAsync("node", [cliPath, "init", root]);
+    const codemap = await readFile(path.join(root, "CODEMAP.md"), "utf8");
+    assert.match(codemap, /`tool_app\.py` — Python entry; pyproject\.toml console script/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("detects Rust entry points from Cargo.toml [[bin]] paths", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "agent-ready-cargobin-"));
+  try {
+    await writeFile(
+      path.join(root, "Cargo.toml"),
+      ["[package]", 'name = "crate-app"', 'version = "0.1.0"', "", "[[bin]]", 'name = "tool"', 'path = "src/tools/cli.rs"'].join("\n")
+    );
+    await mkdir(path.join(root, "src", "tools"), { recursive: true });
+    await writeFile(path.join(root, "src", "tools", "cli.rs"), "fn main() {}\n");
+
+    await execFileAsync("node", [cliPath, "init", root]);
+    const codemap = await readFile(path.join(root, "CODEMAP.md"), "utf8");
+    assert.match(codemap, /`src\/tools\/cli\.rs` — Rust binary; Cargo\.toml \[\[bin\]\] path/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("excludes standard-library modules from external dependencies", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "agent-ready-stdlib-"));
+  try {
+    await mkdir(path.join(root, "app"), { recursive: true });
+    await writeFile(path.join(root, "app", "main.py"), "import os\nimport json\nimport requests\n");
+    await mkdir(path.join(root, "src"), { recursive: true });
+    await writeFile(path.join(root, "src", "lib.rs"), "use std::fs;\nuse serde::Serialize;\n");
+
+    await execFileAsync("node", [cliPath, "init", root]);
+    const codemap = await readFile(path.join(root, "CODEMAP.md"), "utf8");
+    const external = codemap.slice(codemap.indexOf("## External Dependencies"), codemap.indexOf("## Top-level Map"));
+
+    assert.match(external, /`requests`/);
+    assert.match(external, /`serde`/);
+    assert.doesNotMatch(external, /`os`/);
+    assert.doesNotMatch(external, /`json`/);
+    assert.doesNotMatch(external, /`std`/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("does not generate an rtl-ui skill for a CLI with Hebrew strings but no UI", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "agent-ready-hebcli-"));
+  try {
+    await writeFile(
+      path.join(root, "package.json"),
+      JSON.stringify({ name: "heb-cli", type: "module", bin: { "heb-cli": "cli.js" } }, null, 2)
+    );
+    await writeFile(path.join(root, "cli.js"), "console.log('שלום עולם, זה CLI');\n");
+
+    await execFileAsync("node", [cliPath, "init", root]);
+    await assert.rejects(readFile(path.join(root, ".claude", "skills", "rtl-ui", "SKILL.md"), "utf8"));
+    const claude = await readFile(path.join(root, "CLAUDE.md"), "utf8");
+    assert.doesNotMatch(claude, /Hebrew\/RTL UI/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("init preserves existing files by writing proposed files", async () => {
   const root = await createFixture();
   try {

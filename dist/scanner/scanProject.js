@@ -1,4 +1,5 @@
 import { promises as fs } from "node:fs";
+import { builtinModules } from "node:module";
 import path from "node:path";
 import { DEFAULT_IGNORES, listDirSafe, pathExists, readJson, readText, rel, walkFiles } from "../utils/fs.js";
 const LANGUAGE_EXTS = {
@@ -73,11 +74,13 @@ async function detectPackages(root, files) {
         if (!json)
             continue;
         const workspaces = Array.isArray(json.workspaces) ? json.workspaces : json.workspaces?.packages;
+        const pkgDir = path.posix.dirname(rel(root, file));
         packages.push({
             path: rel(root, file),
             name: json.name,
             description: json.description,
             packageManager: json.packageManager,
+            bin: normalizeBin(json.bin, pkgDir),
             scripts: json.scripts ?? {},
             dependencies: json.dependencies ?? {},
             devDependencies: json.devDependencies ?? {},
@@ -85,6 +88,14 @@ async function detectPackages(root, files) {
         });
     }
     return packages.sort((a, b) => a.path.localeCompare(b.path));
+}
+// Resolve package.json `bin` (string or { name: path }) into repo-relative file
+// paths. This is the canonical way Node CLIs declare their entry point, so it is
+// the most reliable entry-point signal for published tools.
+function normalizeBin(bin, pkgDir) {
+    const values = typeof bin === "string" ? [bin] : bin ? Object.values(bin) : [];
+    const prefix = pkgDir === "." ? "" : `${pkgDir}/`;
+    return [...new Set(values.filter(Boolean).map((value) => path.posix.normalize(`${prefix}${value}`)))];
 }
 function mergeDeps(packages) {
     return Object.assign({}, ...packages.map((pkg) => ({ ...pkg.dependencies, ...pkg.devDependencies })));
@@ -401,7 +412,7 @@ async function analyzeCodeGraph(root, files, packages, frameworks) {
         .slice(0, 2000);
     const sourceSet = new Set(sourceFiles.map((file) => rel(root, file)));
     const goModulePath = await readGoModulePath(root);
-    const entryPoints = detectEntryPoints(root, packages, sourceSet, frameworks);
+    const entryPoints = await detectEntryPoints(root, packages, sourceSet, frameworks);
     const importEdges = [];
     const externalImportMap = new Map();
     for (const file of sourceFiles) {
@@ -417,7 +428,10 @@ async function analyzeCodeGraph(root, files, packages, frameworks) {
             else if (isProbablyLocalSpecifier(specifier, from, sourceSet, goModulePath)) {
                 importEdges.push({ from, to: specifier, specifier, resolved: false });
             }
-            else {
+            else if (!isStdlibSpecifier(specifier, path.posix.extname(from))) {
+                // Standard-library modules (Python's `os`/`json`, Rust's `std`, Node's
+                // `node:fs`) are not external dependencies — listing them just buries the
+                // real third-party packages an agent should care about.
                 const packageName = externalPackageName(specifier);
                 const importedBy = externalImportMap.get(packageName) ?? new Set();
                 importedBy.add(from);
@@ -449,41 +463,46 @@ async function analyzeCodeGraph(root, files, packages, frameworks) {
         unresolvedRelativeImports: importEdges.filter((edge) => !edge.resolved).slice(0, 30),
     };
 }
-function detectEntryPoints(root, packages, sourceSet, frameworks) {
+async function detectEntryPoints(root, packages, sourceSet, frameworks) {
     const entries = new Map();
+    // Probe the repo root *and* every package directory. Probing the root even
+    // when there is no package.json is what makes entry-point detection work for
+    // Rust / Python / Go projects — previously the whole pass was nested inside
+    // the package loop, so any repo without a package.json got zero entry points.
+    const probeRoots = new Set([""]);
     for (const pkg of packages) {
-        const dir = path.posix.dirname(pkg.path) === "." ? "." : path.posix.dirname(pkg.path);
-        const packageRoot = dir === "." ? "" : `${dir}/`;
-        const scripts = Object.values(pkg.scripts).join("\n");
-        const candidates = [
-            ["bin", "CLI binary", "package.json bin/main entry"],
-            ["cli.ts", "CLI binary", "conventional CLI entry"],
-            ["cli.js", "CLI binary", "conventional CLI entry"],
-            ["src/cli.ts", "CLI binary", "conventional CLI entry"],
-            ["src/cli.js", "CLI binary", "conventional CLI entry"],
-            ["src/index.ts", "library entry", "conventional package entry"],
-            ["src/index.js", "library entry", "conventional package entry"],
-            ["index.ts", "library entry", "conventional package entry"],
-            ["index.js", "library entry", "conventional package entry"],
-            ["src/main.ts", "application entry", "conventional app entry"],
-            ["src/main.js", "application entry", "conventional app entry"],
-            ["src/server.ts", "server entry", "conventional server entry"],
-            ["src/server.js", "server entry", "conventional server entry"],
-            ["main.py", "Python entry", "conventional Python entry"],
-            ["app.py", "Python app", "conventional Python app entry"],
-            ["src/main.py", "Python entry", "conventional Python entry"],
-            ["cmd/main.go", "Go command", "conventional Go command entry"],
-            ["main.go", "Go command", "conventional Go command entry"],
-            ["src/main.rs", "Rust binary", "conventional Rust binary entry"],
-            ["src/lib.rs", "Rust library", "conventional Rust library entry"],
-        ];
+        const dir = path.posix.dirname(pkg.path);
+        probeRoots.add(dir === "." ? "" : `${dir}/`);
+    }
+    const candidates = [
+        ["cli.ts", "CLI binary", "conventional CLI entry"],
+        ["cli.js", "CLI binary", "conventional CLI entry"],
+        ["src/cli.ts", "CLI binary", "conventional CLI entry"],
+        ["src/cli.js", "CLI binary", "conventional CLI entry"],
+        ["src/index.ts", "library entry", "conventional package entry"],
+        ["src/index.js", "library entry", "conventional package entry"],
+        ["index.ts", "library entry", "conventional package entry"],
+        ["index.js", "library entry", "conventional package entry"],
+        ["src/main.ts", "application entry", "conventional app entry"],
+        ["src/main.js", "application entry", "conventional app entry"],
+        ["src/server.ts", "server entry", "conventional server entry"],
+        ["src/server.js", "server entry", "conventional server entry"],
+        ["main.py", "Python entry", "conventional Python entry"],
+        ["app.py", "Python app", "conventional Python app entry"],
+        ["src/main.py", "Python entry", "conventional Python entry"],
+        ["cmd/main.go", "Go command", "conventional Go command entry"],
+        ["main.go", "Go command", "conventional Go command entry"],
+        ["src/main.rs", "Rust binary", "conventional Rust binary entry"],
+        ["src/lib.rs", "Rust library", "conventional Rust library entry"],
+    ];
+    for (const packageRoot of probeRoots) {
         for (const [candidate, kind, reason] of candidates) {
             const file = `${packageRoot}${candidate}`;
             if (sourceSet.has(file))
                 entries.set(file, { path: file, kind, reason });
         }
         for (const source of sourceSet) {
-            if (!source.startsWith(packageRoot))
+            if (packageRoot && !source.startsWith(packageRoot))
                 continue;
             const local = source.slice(packageRoot.length);
             const frameworkEntry = frameworkEntryPoint(local, frameworks);
@@ -494,13 +513,87 @@ function detectEntryPoints(root, packages, sourceSet, frameworks) {
             if (/^src\/bin\/[^/]+\.rs$/.test(local))
                 entries.set(source, { path: source, kind: "Rust binary", reason: "Cargo src/bin entry" });
         }
-        if (/tsx\s+src\/cli\.ts|node\s+dist\/cli\.js/.test(scripts)) {
+    }
+    // package.json `bin` is the canonical Node CLI entry point, and a `tsx src/cli.ts`
+    // style script is a strong secondary signal. Both are package-scoped.
+    for (const pkg of packages) {
+        for (const binFile of pkg.bin ?? []) {
+            // `bin/` is in the walk ignore list (it is also a compiled-output dir for
+            // Go/.NET), so the bin file is usually not in sourceSet — check disk too.
+            if (sourceSet.has(binFile) || await pathExists(path.join(root, binFile))) {
+                entries.set(binFile, { path: binFile, kind: "CLI binary", reason: "package.json bin entry" });
+            }
+        }
+        const dir = path.posix.dirname(pkg.path);
+        const packageRoot = dir === "." ? "" : `${dir}/`;
+        if (/tsx\s+src\/cli\.ts|node\s+dist\/cli\.js/.test(Object.values(pkg.scripts).join("\n"))) {
             const cli = `${packageRoot}src/cli.ts`;
             if (sourceSet.has(cli))
                 entries.set(cli, { path: cli, kind: "CLI binary", reason: "package script invokes CLI" });
         }
     }
+    // Entry points declared in non-Node manifests (pyproject.toml console scripts,
+    // Cargo.toml [[bin]] paths) — these name files that no naming convention covers.
+    for (const entry of await detectManifestEntryPoints(root, sourceSet)) {
+        entries.set(entry.path, entry);
+    }
     return [...entries.values()].sort((a, b) => a.path.localeCompare(b.path)).slice(0, 40);
+}
+// Read entry points that a project declares explicitly in its language manifest,
+// rather than implies through a conventional filename. Lightweight regex parsing
+// (consistent with how go.mod is read) — we only need a few string values, not a
+// full TOML parser.
+async function detectManifestEntryPoints(root, sourceSet) {
+    const entries = [];
+    const pyproject = await readText(path.join(root, "pyproject.toml"));
+    if (pyproject) {
+        for (const header of ["[project.scripts]", "[tool.poetry.scripts]"]) {
+            for (const value of tomlStringValues(tomlSection(pyproject, header))) {
+                // Values look like "package.module:function"; resolve the module half.
+                const moduleRef = value.split(":")[0].trim().replaceAll(".", "/");
+                const resolved = resolvePythonModulePath(moduleRef, sourceSet) ?? resolvePythonModulePath(`src/${moduleRef}`, sourceSet);
+                if (resolved)
+                    entries.push({ path: resolved, kind: "Python entry", reason: "pyproject.toml console script" });
+            }
+        }
+    }
+    const cargo = await readText(path.join(root, "Cargo.toml"));
+    if (cargo) {
+        for (const block of cargo.matchAll(/\[\[bin\]\]([\s\S]*?)(?=\n\s*\[|$)/g)) {
+            const pathMatch = block[1].match(/^\s*path\s*=\s*["']([^"']+)["']/m);
+            if (!pathMatch)
+                continue;
+            const file = path.posix.normalize(pathMatch[1]);
+            if (sourceSet.has(file))
+                entries.push({ path: file, kind: "Rust binary", reason: "Cargo.toml [[bin]] path" });
+        }
+    }
+    return entries;
+}
+// Return the body lines of a TOML table (everything after the `header` line up to
+// the next `[` table header). Good enough for flat string-value tables.
+function tomlSection(text, header) {
+    const lines = text.split(/\r?\n/);
+    const start = lines.findIndex((line) => line.trim() === header);
+    if (start === -1)
+        return "";
+    const body = [];
+    for (let i = start + 1; i < lines.length; i += 1) {
+        if (/^\s*\[/.test(lines[i]))
+            break;
+        body.push(lines[i]);
+    }
+    return body.join("\n");
+}
+// Extract the right-hand string value from each `key = "value"` line in a section.
+function tomlStringValues(section) {
+    const out = [];
+    for (const line of section.split(/\r?\n/)) {
+        const match = line.match(/^\s*[\w.-]+\s*=\s*["']([^"']+)["']/);
+        if (match)
+            out.push(match[1]);
+    }
+    return out;
 }
 function frameworkEntryPoint(localPath, frameworks) {
     // Framework conventions like `pages/` and `app/` are generic folder names that
@@ -680,6 +773,36 @@ function externalPackageName(specifier) {
         return specifier.split(".")[0];
     return specifier.split("/")[0];
 }
+const NODE_BUILTINS = new Set(builtinModules);
+const RUST_STDLIB = new Set(["std", "core", "alloc", "proc_macro", "test"]);
+// Curated set of Python standard-library top-level modules. Not exhaustive, but
+// covers the modules that otherwise dominate the "external dependencies" list.
+const PYTHON_STDLIB = new Set([
+    "__future__", "abc", "argparse", "array", "ast", "asyncio", "atexit", "base64", "bisect", "builtins",
+    "bz2", "calendar", "cmath", "codecs", "collections", "concurrent", "configparser", "contextlib", "copy",
+    "csv", "ctypes", "dataclasses", "datetime", "decimal", "difflib", "dis", "email", "enum", "errno",
+    "fnmatch", "fractions", "functools", "gc", "getpass", "gettext", "glob", "gzip", "hashlib", "heapq",
+    "hmac", "html", "http", "importlib", "inspect", "io", "ipaddress", "itertools", "json", "keyword",
+    "linecache", "locale", "logging", "lzma", "math", "mimetypes", "mmap", "multiprocessing", "numbers",
+    "operator", "os", "pathlib", "pickle", "platform", "pprint", "profile", "queue", "random", "re",
+    "secrets", "select", "shlex", "shutil", "signal", "smtplib", "socket", "sqlite3", "ssl", "stat",
+    "statistics", "string", "struct", "subprocess", "sys", "sysconfig", "tarfile", "tempfile", "textwrap",
+    "threading", "time", "timeit", "token", "tokenize", "traceback", "types", "typing", "unittest",
+    "urllib", "uuid", "venv", "warnings", "weakref", "xml", "zipfile", "zlib", "zoneinfo",
+]);
+// True when a specifier refers to the language standard library rather than a
+// third-party dependency, so it can be excluded from the external imports list.
+function isStdlibSpecifier(specifier, ext) {
+    if (/\.(tsx?|jsx?|mjs|cjs)$/.test(ext)) {
+        const bare = specifier.startsWith("node:") ? specifier.slice(5) : specifier;
+        return specifier.startsWith("node:") || NODE_BUILTINS.has(bare.split("/")[0]);
+    }
+    if (ext === ".py")
+        return PYTHON_STDLIB.has(specifier.split(".")[0]);
+    if (ext === ".rs")
+        return RUST_STDLIB.has(specifier.split("::")[0]);
+    return false;
+}
 function detectNoisyPaths(files) {
     const noisy = new Set();
     for (const file of files) {
@@ -692,12 +815,20 @@ function detectNoisyPaths(files) {
     return [...noisy];
 }
 async function detectHebrewOrRtl(files) {
-    const textFiles = files.filter((file) => /\.(ts|tsx|js|jsx|md|css|html|json)$/.test(file)).slice(0, 300);
+    // Flag only projects with actual RTL *UI*, not any project that merely contains
+    // Hebrew strings (e.g. a CLI with Hebrew prompts would otherwise get a spurious
+    // rtl-ui skill). Explicit RTL markers count anywhere; Hebrew characters only
+    // count inside UI files.
+    const uiExt = /\.(tsx|jsx|vue|svelte|css|scss|less|html?|astro)$/;
+    const scanExt = /\.(tsx?|jsx?|mjs|cjs|vue|svelte|css|scss|less|html?|astro)$/;
+    const textFiles = files.filter((file) => scanExt.test(file)).slice(0, 300);
     for (const file of textFiles) {
         const text = await readText(file);
         if (!text)
             continue;
-        if (/[\u0590-\u05FF]/.test(text) || /dir=["']rtl["']|direction:\s*rtl/.test(text))
+        if (/dir=["']rtl["']|direction:\s*rtl/.test(text))
+            return true;
+        if (uiExt.test(file) && /[\u0590-\u05FF]/.test(text))
             return true;
     }
     return false;

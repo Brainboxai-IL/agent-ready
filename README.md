@@ -14,7 +14,7 @@
 
 <p align="center">
   <img alt="Status" src="https://img.shields.io/badge/status-experimental-f59e0b?style=flat-square" />
-  <img alt="Version" src="https://img.shields.io/badge/version-0.3.0-111827?style=flat-square" />
+  <img alt="Version" src="https://img.shields.io/badge/version-0.3.1-111827?style=flat-square" />
   <img alt="License" src="https://img.shields.io/badge/license-MIT-0f766e?style=flat-square" />
   <img alt="Runtime" src="https://img.shields.io/badge/runtime-Node.js-3c873a?style=flat-square" />
   <img alt="Built by BrainboxAI" src="https://img.shields.io/badge/by-BrainboxAI-111827?style=flat-square" />
@@ -281,13 +281,14 @@ Current detection includes:
 `agent-ready` is moving beyond boilerplate generation. It now builds a lightweight static map for JavaScript, TypeScript, Python, Go, and Rust projects:
 
 - package/script entry points
-- common CLI, server, app, route, Python, Go, and Rust entry files
+- common CLI, server, app, route, Python, Go, and Rust entry files — including projects with no `package.json`
+- manifest-declared entry points: `package.json` `bin`, `pyproject.toml` console scripts, and `Cargo.toml` `[[bin]]` paths
 - JS/TS imports, including TypeScript source imported with runtime `.js` specifiers
 - Python `import` / `from ... import ...` relationships, including relative modules
 - Go imports resolved through the local `go.mod` module path
 - Rust `mod` declarations and basic `crate::` / `self::` / `super::` use paths
 - central files ranked by inbound imports
-- external packages imported by source files
+- external (third-party) packages imported by source files, with language standard libraries filtered out
 
 This makes `CODEMAP.md` useful as a code navigation artifact, not just a formatted directory listing.
 
