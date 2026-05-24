@@ -14,7 +14,7 @@
 
 <p align="center">
   <img alt="Status" src="https://img.shields.io/badge/status-experimental-f59e0b?style=flat-square" />
-  <img alt="Version" src="https://img.shields.io/badge/version-0.2.1-111827?style=flat-square" />
+  <img alt="Version" src="https://img.shields.io/badge/version-0.2.2-111827?style=flat-square" />
   <img alt="License" src="https://img.shields.io/badge/license-MIT-0f766e?style=flat-square" />
   <img alt="Runtime" src="https://img.shields.io/badge/runtime-Node.js-3c873a?style=flat-square" />
   <img alt="Built by BrainboxAI" src="https://img.shields.io/badge/by-BrainboxAI-111827?style=flat-square" />
