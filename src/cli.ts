@@ -93,6 +93,8 @@ function printSummary(scan: Awaited<ReturnType<typeof scanProject>>, score: Retu
   console.log(`Monorepo: ${scan.monorepo.detected ? `yes (${scan.monorepo.tools.join(", ") || "multiple packages"})` : "no/unclear"}`);
   console.log(`Entry points: ${scan.codeGraph.entryPoints.length}`);
   console.log(`Resolved internal imports: ${scan.codeGraph.importEdges.length}`);
+  if (scan.envVars.length) console.log(`Required env vars: ${scan.envVars.length} (from .env.example)`);
+  if (scan.description) console.log(`Description: ${scan.description.length > 80 ? `${scan.description.slice(0, 77)}...` : scan.description}`);
 
   if (score.missing.length) {
     console.log("\nMissing:");

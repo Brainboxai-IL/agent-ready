@@ -3,6 +3,7 @@ export type CommandName = "dev" | "build" | "test" | "lint" | "typecheck" | "for
 export interface PackageInfo {
   path: string;
   name?: string;
+  description?: string;
   packageManager?: string;
   scripts: Record<string, string>;
   dependencies: Record<string, string>;
@@ -13,6 +14,8 @@ export interface PackageInfo {
 export interface ProjectScan {
   root: string;
   name: string;
+  description?: string;
+  envVars: string[];
   packages: PackageInfo[];
   packageManager?: string;
   languages: string[];

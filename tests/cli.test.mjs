@@ -196,6 +196,79 @@ test("does not mislabel Vite + React Router pages as Next.js routes", async () =
   }
 });
 
+test("enriches CLAUDE.md with README description and .env.example variables", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "agent-ready-enrich-"));
+  try {
+    await writeFile(
+      path.join(root, "package.json"),
+      JSON.stringify({ name: "enrich-app", scripts: { build: "tsc" }, dependencies: { express: "latest" } }, null, 2)
+    );
+    await writeFile(
+      path.join(root, "README.md"),
+      [
+        "# Enrich App",
+        "",
+        "![build](https://img.shields.io/badge/build-passing-green)",
+        "",
+        "> [!WARNING]",
+        "> Experimental preview, expect breakage.",
+        "",
+        "```bash",
+        "npx enrich-app init",
+        "```",
+        "",
+        "Enrich App is a billing service that syncs invoices between Stripe and the ledger.",
+        "",
+        "## Install",
+        "Run npm install.",
+      ].join("\n")
+    );
+    await writeFile(
+      path.join(root, ".env.example"),
+      ["# config", "STRIPE_SECRET_KEY=", "export DATABASE_URL=postgres://localhost", "PORT=3000", "not_a_var"].join("\n")
+    );
+
+    await execFileAsync("node", [cliPath, "init", root]);
+    const claude = await readFile(path.join(root, "CLAUDE.md"), "utf8");
+
+    // README first prose paragraph becomes the overview (badge + heading skipped).
+    assert.match(claude, /## Overview/);
+    assert.match(claude, /billing service that syncs invoices/);
+    assert.doesNotMatch(claude, /shields\.io/);
+
+    // Env var NAMES are surfaced; values are not.
+    assert.match(claude, /## Required Environment Variables/);
+    assert.match(claude, /`STRIPE_SECRET_KEY`/);
+    assert.match(claude, /`DATABASE_URL`/);
+    assert.match(claude, /`PORT`/);
+    assert.doesNotMatch(claude, /postgres:\/\/localhost/);
+
+    // GitHub callout body must not leak into the description.
+    assert.doesNotMatch(claude, /Experimental preview/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("uses a leading blockquote tagline as the description", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "agent-ready-tagline-"));
+  try {
+    await writeFile(path.join(root, "package.json"), JSON.stringify({ name: "tagline-app" }, null, 2));
+    await writeFile(
+      path.join(root, "README.md"),
+      ["# Tagline App 🎙️", "", "> Smart meeting transcription, in real time.", "", "## Setup", "Clone and run."].join("\n")
+    );
+
+    await execFileAsync("node", [cliPath, "init", root]);
+    const claude = await readFile(path.join(root, "CLAUDE.md"), "utf8");
+
+    assert.match(claude, /## Overview/);
+    assert.match(claude, /Smart meeting transcription, in real time\./);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("init preserves existing files by writing proposed files", async () => {
   const root = await createFixture();
   try {
