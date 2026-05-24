@@ -14,7 +14,7 @@
 
 <p align="center">
   <img alt="Status" src="https://img.shields.io/badge/status-experimental-f59e0b?style=flat-square" />
-  <img alt="Version" src="https://img.shields.io/badge/version-0.2.3-111827?style=flat-square" />
+  <img alt="Version" src="https://img.shields.io/badge/version-0.3.0-111827?style=flat-square" />
   <img alt="License" src="https://img.shields.io/badge/license-MIT-0f766e?style=flat-square" />
   <img alt="Runtime" src="https://img.shields.io/badge/runtime-Node.js-3c873a?style=flat-square" />
   <img alt="Built by BrainboxAI" src="https://img.shields.io/badge/by-BrainboxAI-111827?style=flat-square" />
@@ -154,8 +154,10 @@ CLAUDE.md.agent-ready-proposed
 
 A lean root guide for AI agents:
 
+- project overview (extracted from the README tagline/first paragraph, or `package.json` description)
 - project snapshot
 - detected stack
+- required environment variables (names only, from `.env.example`-style files)
 - important directories
 - validation commands
 - operating rules
@@ -271,6 +273,7 @@ Current detection includes:
 | Monorepos | Turborepo, Nx, pnpm workspaces, package workspaces |
 | Deployment | Docker, GitHub Actions, Vercel, Netlify, Cloudflare Workers |
 | UI traits | Hebrew/RTL detection |
+| Project context | README description/tagline, required env vars from `.env.example` |
 | Validation | build, test, lint, typecheck, format scripts |
 
 ## Code Understanding
@@ -425,7 +428,7 @@ node dist/cli.js analyze .
 
 Planned improvements:
 
-- deeper README/config/workflow analysis
+- deeper config/CI-workflow analysis (README description and `.env.example` vars already extracted)
 - richer monorepo workspace detection
 - generated `CONTRIBUTING.md` and `SECURITY.md` templates
 - optional AI-assisted repository summary mode
