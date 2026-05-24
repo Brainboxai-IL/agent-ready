@@ -76,7 +76,7 @@ CODEMAP.md                   # repository map for navigation
 .agent-ready/report.md       # readiness score and findings
 .agent-ready/recommendations.md
 .agent-ready/hooks/README.md
-.agent-ready/skills/*/SKILL.md
+.claude/skills/*/SKILL.md       # Claude Code-loadable skills
 apps/*/CLAUDE.md             # generated for detected monorepo workspaces
 ```
 
@@ -121,6 +121,14 @@ Preview generated files:
 ```bash
 agent-ready init /path/to/project --dry-run
 ```
+
+Preview generated file contents:
+
+```bash
+agent-ready init /path/to/project --dry-run --verbose
+```
+
+> Run `agent-ready init` manually from your terminal, not from inside an autonomous coding agent. It writes agent harness files such as `CLAUDE.md`, `.claude/settings.json`, and `.claude/hooks/*`, which some agent security classifiers correctly treat as self-modification.
 
 Generate the harness:
 
@@ -194,7 +202,7 @@ Generated hooks include:
 - `PreToolUse` for `Write|Edit|MultiEdit` — blocks edits to generated/noisy paths such as `node_modules`, `dist`, `build`, `coverage`, `.next`, `vendor`, and `*.generated.*`.
 - `PostToolUse` for `Write|Edit|MultiEdit` — reminds the agent which local validation command to run after edits.
 
-### `.agent-ready/skills/*/SKILL.md`
+### `.claude/skills/*/SKILL.md`
 
 On-demand task expertise. Examples:
 
@@ -327,10 +335,10 @@ Generating 14 files:
 - created: .agent-ready/report.md
 - created: .agent-ready/recommendations.md
 - created: .agent-ready/hooks/README.md
-- created: .agent-ready/skills/codebase-navigation/SKILL.md
-- created: .agent-ready/skills/validation/SKILL.md
-- created: .agent-ready/skills/nextjs-hydration/SKILL.md
-- created: .agent-ready/skills/supabase-debugging/SKILL.md
+- created: .claude/skills/codebase-navigation/SKILL.md
+- created: .claude/skills/validation/SKILL.md
+- created: .claude/skills/nextjs-hydration/SKILL.md
+- created: .claude/skills/supabase-debugging/SKILL.md
 - created: apps/web/CLAUDE.md
 - created: packages/db/CLAUDE.md
 ```
@@ -356,10 +364,18 @@ agent-ready init [path] --dry-run
 Show which files would be generated without writing anything.
 
 ```bash
+agent-ready init [path] --dry-run --verbose
+```
+
+Show the generated contents too. Use this before deciding whether to run `init` for real or manually merge proposed files.
+
+```bash
 agent-ready init [path] --force
 ```
 
 Overwrite existing files instead of writing `*.agent-ready-proposed`.
+
+When existing harness files are present, default `init` writes `*.agent-ready-proposed` files. Review and manually merge them; `agent-ready` does not assume its generated `CLAUDE.md` is better than a maintainer-authored one.
 
 ## Development
 

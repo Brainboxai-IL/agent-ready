@@ -37,9 +37,12 @@ async function createFixture() {
       2
     )
   );
+  await mkdir(path.join(root, "src", "app", "(dashboard)"), { recursive: true });
   await writeFile(path.join(root, "next.config.ts"), "export default {};\n");
-  await writeFile(path.join(root, "utils.ts"), "export function title() { return 'שלום'; }\n");
-  await writeFile(path.join(root, "page.tsx"), "import { title } from './utils.js';\nexport default function Page() { return <main dir=\"rtl\">{title()}</main>; }\n");
+  await writeFile(path.join(root, "middleware.ts"), "export function middleware() {}\n");
+  await writeFile(path.join(root, "src", "utils.ts"), "export function title() { return 'שלום'; }\n");
+  await writeFile(path.join(root, "src", "app", "layout.tsx"), "export default function Layout({ children }) { return <html><body>{children}</body></html>; }\n");
+  await writeFile(path.join(root, "src", "app", "(dashboard)", "page.tsx"), "import { title } from '../../utils.js';\nexport default function Page() { return <main dir=\"rtl\">{title()}</main>; }\n");
   return root;
 }
 
@@ -51,6 +54,7 @@ test("analyze detects stack and does not write files", async () => {
     assert.match(stdout, /Next\.js/);
     assert.match(stdout, /React/);
     assert.match(stdout, /Supabase/);
+    assert.doesNotMatch(stdout, /Entry points: 0/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -62,9 +66,9 @@ test("init generates harness files and stack-specific skills", async () => {
     await execFileAsync("node", [cliPath, "init", root]);
     const claude = await readFile(path.join(root, "CLAUDE.md"), "utf8");
     const codemap = await readFile(path.join(root, "CODEMAP.md"), "utf8");
-    const nextSkill = await readFile(path.join(root, ".agent-ready", "skills", "nextjs-hydration", "SKILL.md"), "utf8");
-    const supabaseSkill = await readFile(path.join(root, ".agent-ready", "skills", "supabase-debugging", "SKILL.md"), "utf8");
-    const rtlSkill = await readFile(path.join(root, ".agent-ready", "skills", "rtl-ui", "SKILL.md"), "utf8");
+    const nextSkill = await readFile(path.join(root, ".claude", "skills", "nextjs-hydration", "SKILL.md"), "utf8");
+    const supabaseSkill = await readFile(path.join(root, ".claude", "skills", "supabase-debugging", "SKILL.md"), "utf8");
+    const rtlSkill = await readFile(path.join(root, ".claude", "skills", "rtl-ui", "SKILL.md"), "utf8");
     const settings = JSON.parse(await readFile(path.join(root, ".claude", "settings.json"), "utf8"));
     const destructiveHook = await readFile(path.join(root, ".claude", "hooks", "prevent-destructive.mjs"), "utf8");
     const validationHook = await readFile(path.join(root, ".claude", "hooks", "suggest-validation.mjs"), "utf8");
@@ -72,13 +76,33 @@ test("init generates harness files and stack-specific skills", async () => {
     assert.match(claude, /Next\.js detected/);
     assert.match(codemap, /fixture-next-supabase/);
     assert.match(codemap, /Internal Import Graph/);
-    assert.match(codemap, /`page\.tsx` → `utils\.ts`/);
+    assert.match(codemap, /`src\/app\/\(dashboard\)\/page\.tsx` — Next\.js route; App Router route segment entry/);
+    assert.match(codemap, /`src\/app\/layout\.tsx` — Next\.js layout; App Router root entry/);
+    assert.match(codemap, /`middleware\.tsx?`|`middleware\.ts`/);
+    assert.match(codemap, /`src\/app\/\(dashboard\)\/page\.tsx` → `src\/utils\.ts`/);
     assert.match(nextSkill, /hydration/i);
     assert.match(supabaseSkill, /Supabase/);
     assert.match(rtlSkill, /RTL/);
     assert.ok(settings.hooks.PreToolUse.length > 0);
+    assert.equal(Object.hasOwn(settings, "agentReady"), false);
+    assert.ok(settings.permissions.deny.every((rule) => /^(Write|Edit|MultiEdit)\(.+\)$/.test(rule)));
+    assert.ok(!settings.permissions.deny.includes("dist/**"));
+    assert.ok(settings.permissions.deny.includes("Write(dist/**)"));
     assert.match(destructiveHook, /permissionDecision/);
     assert.match(validationHook, /Suggested validation after edits/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("dry-run verbose prints generated contents", async () => {
+  const root = await createFixture();
+  try {
+    const { stdout } = await execFileAsync("node", [cliPath, "init", root, "--dry-run", "--verbose"]);
+
+    assert.match(stdout, /would create: CLAUDE\.md/);
+    assert.match(stdout, /--- CLAUDE\.md begin ---/);
+    assert.match(stdout, /AI Agent Guide/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

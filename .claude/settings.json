@@ -1,15 +1,33 @@
 {
   "permissions": {
     "deny": [
-      "node_modules/**",
-      ".next/**",
-      "dist/**",
-      "build/**",
-      "coverage/**",
-      ".turbo/**",
-      "vendor/**",
-      "generated/**",
-      "**/*.generated.*"
+      "Write(node_modules/**)",
+      "Write(.next/**)",
+      "Write(dist/**)",
+      "Write(build/**)",
+      "Write(coverage/**)",
+      "Write(.turbo/**)",
+      "Write(vendor/**)",
+      "Write(generated/**)",
+      "Write(**/*.generated.*)",
+      "Edit(node_modules/**)",
+      "Edit(.next/**)",
+      "Edit(dist/**)",
+      "Edit(build/**)",
+      "Edit(coverage/**)",
+      "Edit(.turbo/**)",
+      "Edit(vendor/**)",
+      "Edit(generated/**)",
+      "Edit(**/*.generated.*)",
+      "MultiEdit(node_modules/**)",
+      "MultiEdit(.next/**)",
+      "MultiEdit(dist/**)",
+      "MultiEdit(build/**)",
+      "MultiEdit(coverage/**)",
+      "MultiEdit(.turbo/**)",
+      "MultiEdit(vendor/**)",
+      "MultiEdit(generated/**)",
+      "MultiEdit(**/*.generated.*)"
     ]
   },
   "hooks": {
@@ -24,7 +42,7 @@
               "${CLAUDE_PROJECT_DIR}/.claude/hooks/prevent-destructive.mjs"
             ],
             "timeout": 10,
-            "statusMessage": "Checking command safety"
+            "statusMessage": "agent-ready: Checking command safety"
           }
         ]
       },
@@ -38,7 +56,7 @@
               "${CLAUDE_PROJECT_DIR}/.claude/hooks/protect-generated.mjs"
             ],
             "timeout": 10,
-            "statusMessage": "Checking generated/noisy path safety"
+            "statusMessage": "agent-ready: Checking generated/noisy path safety"
           }
         ]
       }
@@ -54,14 +72,10 @@
               "${CLAUDE_PROJECT_DIR}/.claude/hooks/suggest-validation.mjs"
             ],
             "timeout": 10,
-            "statusMessage": "Suggesting validation"
+            "statusMessage": "agent-ready: Suggesting validation"
           }
         ]
       }
     ]
-  },
-  "agentReady": {
-    "generatedBy": "agent-ready",
-    "project": "agent-ready"
   }
 }
