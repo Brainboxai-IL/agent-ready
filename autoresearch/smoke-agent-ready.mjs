@@ -12,7 +12,7 @@ const checks = [];
 
 async function main() {
   await check("npm latest is expected release", async () => {
-    const { stdout } = await execFileAsync(bin("npm"), ["view", "@netanelyasi/agent-ready", "version", "--json"]);
+    const { stdout } = await run(bin("npm"), ["view", "@netanelyasi/agent-ready", "version", "--json"]);
     assert.equal(JSON.parse(stdout), expectedVersion);
   });
 
@@ -88,9 +88,16 @@ async function check(name, fn) {
 }
 
 async function runAgentReady(command, root, ...args) {
-  return execFileAsync(bin("npx"), ["--yes", "@netanelyasi/agent-ready@latest", command, root, ...args], {
+  return run(bin("npx"), ["--yes", "@netanelyasi/agent-ready@latest", command, root, ...args], {
     timeout: 120_000,
     maxBuffer: 10 * 1024 * 1024,
+  });
+}
+
+function run(command, args, options = {}) {
+  return execFileAsync(command, args, {
+    shell: process.platform === "win32",
+    ...options,
   });
 }
 
