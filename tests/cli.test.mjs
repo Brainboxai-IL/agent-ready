@@ -83,6 +83,19 @@ test("init generates harness files and stack-specific skills", async () => {
     assert.match(nextSkill, /hydration/i);
     assert.match(supabaseSkill, /Supabase/);
     assert.match(rtlSkill, /RTL/);
+
+    // Skills must carry valid YAML frontmatter (name + description) or Claude
+    // Code will not load them. Guard against regressing to a plain heading.
+    for (const [slug, content] of [
+      ["nextjs-hydration", nextSkill],
+      ["supabase-debugging", supabaseSkill],
+      ["rtl-ui", rtlSkill],
+    ]) {
+      const frontmatter = content.match(/^---\n([\s\S]*?)\n---\n/);
+      assert.ok(frontmatter, `${slug} SKILL.md must start with YAML frontmatter`);
+      assert.match(frontmatter[1], new RegExp(`(^|\\n)name: ${slug}(\\n|$)`), `${slug} frontmatter must declare name: ${slug}`);
+      assert.match(frontmatter[1], /(^|\n)description: \S/, `${slug} frontmatter must declare a non-empty description`);
+    }
     assert.ok(settings.hooks.PreToolUse.length > 0);
     assert.equal(Object.hasOwn(settings, "agentReady"), false);
     assert.ok(settings.permissions.deny.every((rule) => /^(Write|Edit|MultiEdit)\(.+\)$/.test(rule)));

@@ -7,5 +7,9 @@ node_modules/
 coverage/
 .cache/
 
+# autoresearch run artifacts (keep the harness, ignore its output)
+autoresearch/results.tsv
+autoresearch/*.log
+
 # Keep dist for npm publishing if desired. Remove this ignore if publishing source-only.
 # dist/

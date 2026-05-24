@@ -6,7 +6,7 @@ export function generateFiles(scan: ProjectScan, score: ReadinessScore, force: b
   add("CLAUDE.md", generateClaudeMd(scan));
   add("CODEMAP.md", generateCodemap(scan));
   add(".aiignore", generateAiIgnore(scan));
-  add(".claude/settings.json", generateClaudeSettings(scan));
+  add(".claude/settings.json", generateClaudeSettings());
   add(".claude/hooks/prevent-destructive.mjs", generatePreventDestructiveHook());
   add(".claude/hooks/protect-generated.mjs", generateProtectGeneratedHook());
   add(".claude/hooks/suggest-validation.mjs", generateSuggestValidationHook(scan));
@@ -140,6 +140,19 @@ function commandLines(scan: ProjectScan): string[] {
   return lines;
 }
 
+// Flat one-command-per-rule list for the validation skill, e.g. "test: `npm run test`".
+// Unlike commandLines (which nests for CLAUDE.md), this stays flat so it renders
+// correctly as a SKILL.md bullet list.
+function validationSkillRules(scan: ProjectScan): string[] {
+  const order = ["dev", "build", "test", "lint", "typecheck", "format"] as const;
+  const rules: string[] = [];
+  for (const name of order) {
+    for (const command of (scan.commands[name] ?? []).slice(0, 8)) rules.push(`${name}: \`${command}\``);
+  }
+  if (!rules.length) rules.push("No standard validation commands were detected. Add project-specific commands here.");
+  return rules;
+}
+
 function generateCodemap(scan: ProjectScan): string {
   return [
     `# ${scan.name} — CODEMAP`,
@@ -228,7 +241,7 @@ function generateAiIgnore(scan: ProjectScan): string {
   return `${base.join("\n")}\n`;
 }
 
-function generateClaudeSettings(scan: ProjectScan): string {
+function generateClaudeSettings(): string {
   const deniedPathPatterns = [
     "node_modules/**",
     ".next/**",
@@ -465,7 +478,7 @@ function hookRecommendations(scan: ProjectScan): string[] {
 function generateSkills(scan: ProjectScan): Array<{ slug: string; content: string }> {
   const skills: Array<{ slug: string; content: string }> = [
     { slug: "codebase-navigation", content: skill("codebase-navigation", "Use when starting work in this repository or when a task spans unfamiliar directories.", ["Read CODEMAP.md first.", "Use narrow searches from the relevant directory before global search.", "Prefer symbol/reference search when LSP is available.", "Do not inspect ignored/generated directories unless explicitly needed."]) },
-    { slug: "validation", content: skill("validation", "Use after code edits or before declaring a task complete.", [...commandLines(scan).map((line) => line.replace(/^[- ]+/, "")), "Run the narrowest relevant command first.", "If validation cannot be run, report the exact reason."]) },
+    { slug: "validation", content: skill("validation", "Use after code edits or before declaring a task complete.", [...validationSkillRules(scan), "Run the narrowest relevant command first.", "If validation cannot be run, report the exact reason."]) },
   ];
   if (scan.frameworks.includes("Next.js")) skills.push({ slug: "nextjs-hydration", content: skill("nextjs-hydration", "Use when editing Next.js/React components, routes, or client/server boundaries.", ["Do not read localStorage/sessionStorage/window/document during server render or initial state.", "Use useEffect or guarded client-only code for browser APIs.", "Avoid Math.random() or new Date() in render paths that must hydrate identically.", "Keep server/client boundaries explicit."]) });
   if (scan.databases.includes("Supabase")) skills.push({ slug: "supabase-debugging", content: skill("supabase-debugging", "Use when debugging Supabase queries, RLS, migrations, auth, or PostgREST errors.", ["Inspect the actual query shape before changing schema.", "Prefer maybeSingle() unless a row is guaranteed.", "Check RLS policies and authenticated role behavior before assuming frontend bugs.", "For DB changes, verify current schema first and use migrations."]) });
@@ -475,7 +488,29 @@ function generateSkills(scan: ProjectScan): Array<{ slug: string; content: strin
 }
 
 function skill(name: string, description: string, rules: string[]): string {
-  return [`# ${name}`, "", `Description: ${description}`, "", "## Rules", ...rules.map((rule) => `- ${rule}`), ""].join("\n");
+  return [
+    "---",
+    `name: ${name}`,
+    `description: ${yamlScalar(description)}`,
+    "---",
+    "",
+    `# ${name}`,
+    "",
+    description,
+    "",
+    "## Rules",
+    ...rules.map((rule) => `- ${rule}`),
+    "",
+  ].join("\n");
+}
+
+// Claude Code parses SKILL.md frontmatter as YAML. Quote scalars that contain
+// characters YAML would otherwise treat as structure (`:`, leading `#`, etc.).
+function yamlScalar(value: string): string {
+  if (/^[^\s].*[:#]|^[#&*!|>%@`"']|:\s|\s#/.test(value)) {
+    return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
+  }
+  return value;
 }
 
 function list(items: string[]): string {
