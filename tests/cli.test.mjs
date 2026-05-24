@@ -165,6 +165,37 @@ test("builds Python, Go, and Rust import graph", async () => {
   }
 });
 
+test("does not mislabel Vite + React Router pages as Next.js routes", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "agent-ready-vite-"));
+  try {
+    await writeFile(
+      path.join(root, "package.json"),
+      JSON.stringify(
+        {
+          name: "vite-spa",
+          scripts: { dev: "vite", build: "vite build" },
+          dependencies: { react: "latest", "react-dom": "latest", "react-router-dom": "latest" },
+          devDependencies: { vite: "latest", typescript: "latest" },
+        },
+        null,
+        2
+      )
+    );
+    await writeFile(path.join(root, "vite.config.ts"), "export default {};\n");
+    await mkdir(path.join(root, "src", "pages"), { recursive: true });
+    await writeFile(path.join(root, "src", "main.tsx"), "import './pages/Home';\n");
+    await writeFile(path.join(root, "src", "pages", "Home.tsx"), "export default function Home() { return null; }\n");
+
+    await execFileAsync("node", [cliPath, "init", root]);
+    const codemap = await readFile(path.join(root, "CODEMAP.md"), "utf8");
+
+    assert.doesNotMatch(codemap, /Next\.js/);
+    assert.doesNotMatch(codemap, /Pages Router/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("init preserves existing files by writing proposed files", async () => {
   const root = await createFixture();
   try {

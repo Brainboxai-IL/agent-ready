@@ -49,7 +49,7 @@ export async function scanProject(rootInput: string): Promise<ProjectScan> {
     claudeSettings: await harnessFileState(root, path.join(".claude", "settings.json")),
     skillsDir: await pathExists(path.join(root, ".agent-ready", "skills")) || await pathExists(path.join(root, ".claude", "skills")),
   };
-  const codeGraph = await analyzeCodeGraph(root, files, packages);
+  const codeGraph = await analyzeCodeGraph(root, files, packages, frameworks);
 
   return {
     root,
@@ -117,6 +117,7 @@ function detectFrameworks(files: string[], deps: Record<string, string>): string
   if (deps.react || deps["react-dom"]) found.add("React");
   if (deps.vue || deps.nuxt) found.add(deps.nuxt ? "Nuxt" : "Vue");
   if (deps.svelte || deps["@sveltejs/kit"]) found.add(deps["@sveltejs/kit"] ? "SvelteKit" : "Svelte");
+  if (deps["@remix-run/react"] || deps["@remix-run/node"] || deps["@remix-run/server-runtime"] || files.includes("remix.config.js") || files.includes("remix.config.ts")) found.add("Remix");
   if (deps.vite || files.some((file) => file.startsWith("vite.config."))) found.add("Vite");
   if (deps.express) found.add("Express");
   if (deps["@nestjs/core"]) found.add("NestJS");
@@ -265,7 +266,7 @@ async function harnessFileState(root: string, relativePath: string): Promise<Pro
   return { exists: true, generatedByAgentReady, countsAsMaintainerAuthored: !generatedByAgentReady };
 }
 
-async function analyzeCodeGraph(root: string, files: string[], packages: PackageInfo[]): Promise<CodeGraph> {
+async function analyzeCodeGraph(root: string, files: string[], packages: PackageInfo[], frameworks: string[]): Promise<CodeGraph> {
   const sourceFiles = files
     .filter((file) => /\.(tsx?|jsx?|mjs|cjs|py|go|rs|svelte)$/.test(file))
     .filter((file) => !file.endsWith(".d.ts"))
@@ -273,7 +274,7 @@ async function analyzeCodeGraph(root: string, files: string[], packages: Package
     .slice(0, 2000);
   const sourceSet = new Set(sourceFiles.map((file) => rel(root, file)));
   const goModulePath = await readGoModulePath(root);
-  const entryPoints = detectEntryPoints(root, packages, sourceSet);
+  const entryPoints = detectEntryPoints(root, packages, sourceSet, frameworks);
   const importEdges: ImportEdge[] = [];
   const externalImportMap = new Map<string, Set<string>>();
 
@@ -323,7 +324,7 @@ async function analyzeCodeGraph(root: string, files: string[], packages: Package
   };
 }
 
-function detectEntryPoints(root: string, packages: PackageInfo[], sourceSet: Set<string>): EntryPoint[] {
+function detectEntryPoints(root: string, packages: PackageInfo[], sourceSet: Set<string>, frameworks: string[]): EntryPoint[] {
   const entries = new Map<string, EntryPoint>();
   for (const pkg of packages) {
     const dir = path.posix.dirname(pkg.path) === "." ? "." : path.posix.dirname(pkg.path);
@@ -360,7 +361,7 @@ function detectEntryPoints(root: string, packages: PackageInfo[], sourceSet: Set
     for (const source of sourceSet) {
       if (!source.startsWith(packageRoot)) continue;
       const local = source.slice(packageRoot.length);
-      const frameworkEntry = frameworkEntryPoint(local);
+      const frameworkEntry = frameworkEntryPoint(local, frameworks);
       if (frameworkEntry) entries.set(source, { path: source, ...frameworkEntry });
       if (/^cmd\/[^/]+\/main\.go$/.test(local)) entries.set(source, { path: source, kind: "Go command", reason: "cmd/*/main.go" });
       if (/^src\/bin\/[^/]+\.rs$/.test(local)) entries.set(source, { path: source, kind: "Rust binary", reason: "Cargo src/bin entry" });
@@ -375,25 +376,35 @@ function detectEntryPoints(root: string, packages: PackageInfo[], sourceSet: Set
   return [...entries.values()].sort((a, b) => a.path.localeCompare(b.path)).slice(0, 40);
 }
 
-function frameworkEntryPoint(localPath: string): Omit<EntryPoint, "path"> | undefined {
-  if (/^(src\/)?app\/(page|layout|route)\.(tsx?|jsx?)$/.test(localPath)) {
-    const file = localPath.includes("/layout.") ? "layout" : localPath.includes("/route.") ? "route handler" : "page";
-    return { kind: `Next.js ${file}`, reason: "App Router root entry" };
+function frameworkEntryPoint(localPath: string, frameworks: string[]): Omit<EntryPoint, "path"> | undefined {
+  // Framework conventions like `pages/` and `app/` are generic folder names that
+  // also appear in Vite/React-Router apps. Only treat them as framework entry
+  // points when the framework is actually detected, or every such project is
+  // mislabeled (e.g. a Vite `src/pages/*.tsx` reported as a Next.js route).
+  if (frameworks.includes("Next.js")) {
+    if (/^(src\/)?app\/(page|layout|route)\.(tsx?|jsx?)$/.test(localPath)) {
+      const file = localPath.includes("/layout.") ? "layout" : localPath.includes("/route.") ? "route handler" : "page";
+      return { kind: `Next.js ${file}`, reason: "App Router root entry" };
+    }
+    if (/^(src\/)?app\/.+\/(page|layout|route|loading|error|not-found)\.(tsx?|jsx?)$/.test(localPath)) {
+      return { kind: "Next.js route", reason: "App Router route segment entry" };
+    }
+    if (/^(src\/)?pages\/index\.(tsx?|jsx?)$/.test(localPath)) return { kind: "Next.js route", reason: "Pages Router index" };
+    if (/^(src\/)?pages\/(api\/.+|.+)\.(tsx?|jsx?)$/.test(localPath)) return { kind: "Next.js route", reason: "Pages Router route/API entry" };
+    if (/^(src\/)?middleware\.(tsx?|jsx?)$/.test(localPath)) return { kind: "Next.js middleware", reason: "Next.js request middleware entry" };
+    if (/^next\.config\.(tsx?|jsx?|mjs|cjs)$/.test(localPath)) return { kind: "Next.js config", reason: "Next.js configuration entry" };
   }
-  if (/^(src\/)?app\/.+\/(page|layout|route|loading|error|not-found)\.(tsx?|jsx?)$/.test(localPath)) {
-    return { kind: "Next.js route", reason: "App Router route segment entry" };
+
+  if (frameworks.includes("Remix")) {
+    if (/^app\/(root|entry\.(client|server))\.(tsx?|jsx?)$/.test(localPath)) return { kind: "Remix entry", reason: "Remix root/client/server entry" };
+    if (/^app\/routes\/.+\.(tsx?|jsx?)$/.test(localPath)) return { kind: "Remix route", reason: "Remix route module" };
   }
-  if (/^(src\/)?pages\/index\.(tsx?|jsx?)$/.test(localPath)) return { kind: "Next.js route", reason: "Pages Router index" };
-  if (/^(src\/)?pages\/(api\/.+|.+)\.(tsx?|jsx?)$/.test(localPath)) return { kind: "Next.js route", reason: "Pages Router route/API entry" };
-  if (/^(src\/)?middleware\.(tsx?|jsx?)$/.test(localPath)) return { kind: "Next.js middleware", reason: "Next.js request middleware entry" };
-  if (/^next\.config\.(tsx?|jsx?|mjs|cjs)$/.test(localPath)) return { kind: "Next.js config", reason: "Next.js configuration entry" };
 
-  if (/^app\/(root|entry\.(client|server))\.(tsx?|jsx?)$/.test(localPath)) return { kind: "Remix entry", reason: "Remix root/client/server entry" };
-  if (/^app\/routes\/.+\.(tsx?|jsx?)$/.test(localPath)) return { kind: "Remix route", reason: "Remix route module" };
-
-  if (/^src\/routes\/(\+page|\+layout|\+server)\.(svelte|tsx?|jsx?)$/.test(localPath)) return { kind: "SvelteKit route", reason: "SvelteKit root route entry" };
-  if (/^src\/routes\/.+\/(\+page|\+layout|\+server)\.(svelte|tsx?|jsx?)$/.test(localPath)) return { kind: "SvelteKit route", reason: "SvelteKit route entry" };
-  if (/^src\/hooks(\.server)?\.(tsx?|jsx?)$/.test(localPath)) return { kind: "SvelteKit hook", reason: "SvelteKit lifecycle hook entry" };
+  if (frameworks.includes("SvelteKit")) {
+    if (/^src\/routes\/(\+page|\+layout|\+server)\.(svelte|tsx?|jsx?)$/.test(localPath)) return { kind: "SvelteKit route", reason: "SvelteKit root route entry" };
+    if (/^src\/routes\/.+\/(\+page|\+layout|\+server)\.(svelte|tsx?|jsx?)$/.test(localPath)) return { kind: "SvelteKit route", reason: "SvelteKit route entry" };
+    if (/^src\/hooks(\.server)?\.(tsx?|jsx?)$/.test(localPath)) return { kind: "SvelteKit hook", reason: "SvelteKit lifecycle hook entry" };
+  }
 
   return undefined;
 }
