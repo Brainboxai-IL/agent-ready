@@ -1,268 +1,97 @@
-# agent-ready
-
 <p align="center">
-  <strong>Turn any repository into an AI-agent-ready codebase.</strong>
+  <img src="./assets/readme/hero.svg" width="100%"
+       alt="agent-ready by BrainboxAI: one command turns any repository into a codebase AI agents can navigate safely — generating CLAUDE.md, CODEMAP.md, safety hooks and skills with a readiness score">
 </p>
 
 <p align="center">
-  <a href="#install">Install</a> ·
-  <a href="#quick-start">Quick Start</a> ·
-  <a href="#what-it-generates">What it Generates</a> ·
-  <a href="#how-it-works">How it Works</a> ·
-  <a href="#development">Development</a>
-</p>
-
-<p align="center">
-  <img alt="Status" src="https://img.shields.io/badge/status-experimental-f59e0b?style=flat-square" />
+  <a href="https://github.com/Brainboxai-IL/agent-ready/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Brainboxai-IL/agent-ready/actions/workflows/ci.yml/badge.svg" /></a>
   <img alt="Version" src="https://img.shields.io/badge/version-0.3.1-111827?style=flat-square" />
   <img alt="License" src="https://img.shields.io/badge/license-MIT-0f766e?style=flat-square" />
-  <img alt="Runtime" src="https://img.shields.io/badge/runtime-Node.js-3c873a?style=flat-square" />
+  <img alt="Node" src="https://img.shields.io/badge/node-%3E%3D20-3c873a?style=flat-square" />
   <img alt="Built by BrainboxAI" src="https://img.shields.io/badge/by-BrainboxAI-111827?style=flat-square" />
 </p>
 
-`agent-ready` is a CLI by **BrainboxAI** that scans a project and generates the harness AI coding agents need to work safely and effectively: context files, code maps, ignore rules, skills, hook templates, and readiness reports.
+<p align="center">
+  <a href="#quick-start">Quick Start</a> ·
+  <a href="#what-it-generates">What it Generates</a> ·
+  <a href="#how-it-works">How it Works</a> ·
+  <a href="#safety-model">Safety</a> ·
+  <a href="#cli-reference">CLI Reference</a> ·
+  <a href="#development">Development</a>
+</p>
 
-It is designed for real repositories—not demo apps. Use it on small apps, legacy codebases, monorepos, service folders, or projects that need a clean onboarding layer for Claude Code and other agentic coding tools.
-
-> [!WARNING]
-> `agent-ready` is an **experimental early preview**. It is useful today, but its repository detection is heuristic and generated files should be reviewed before committing.
-
-> [!NOTE]
-> **Inspired by Anthropic's Claude Code large-codebase guidance**  
-> This project was created after studying Anthropic's article:  
-> [**How Claude Code works in large codebases: best practices and where to start**](https://claude.com/blog/how-claude-code-works-in-large-codebases-best-practices-and-where-to-start).  
-> `agent-ready` turns those ideas—lean `CLAUDE.md` files, codebase maps, skills, hooks, MCP, LSP, scoped context, and subagent-friendly workflows—into a repeatable CLI workflow.
-
-## Table of Contents
-
-- [Why agent-ready](#why-agent-ready)
-- [Install](#install)
-- [Quick Start](#quick-start)
-- [What it Generates](#what-it-generates)
-- [How it Works](#how-it-works)
-- [Detected Project Signals](#detected-project-signals)
-- [Code Understanding](#code-understanding)
-- [Safety Model](#safety-model)
-- [Limitations](#limitations)
-- [Example Output](#example-output)
-- [CLI Reference](#cli-reference)
-- [Development](#development)
-- [Roadmap](#roadmap)
-- [Brand](#brand)
-- [Acknowledgements](#acknowledgements)
-- [Contributing](#contributing)
-- [License](#license)
-
-## Why agent-ready
-
-AI agents perform best when a repository is legible:
-
-- Where should the agent start searching?
-- Which files are generated noise?
-- Which test/build commands are safe and local?
-- Which project rules belong in always-loaded context?
-- Which expertise should load only on demand?
-- What should the agent never touch without confirmation?
-
-`agent-ready` turns those answers into files an agent can actually use.
-
-Instead of manually writing a bloated `CLAUDE.md`, it creates a layered harness:
+AI agents perform best when a repository answers six questions: where to start searching, which files are generated noise, which commands are safe to run, which rules belong in always-loaded context, which expertise should load on demand, and what must never be touched without confirmation. `agent-ready` scans your project and turns those answers into files an agent can actually use:
 
 ```txt
-CLAUDE.md                    # lean root agent guide
-CODEMAP.md                   # repository map for navigation
-.aiignore                    # noisy paths to avoid
-.claude/settings.json        # versioned deny rules
-.agent-ready/report.md       # readiness score and findings
-.agent-ready/recommendations.md
-.agent-ready/hooks/README.md
-.claude/skills/*/SKILL.md       # Claude Code-loadable skills
-apps/*/CLAUDE.md             # generated for detected monorepo workspaces
+$ npx @netanelyasi/agent-ready init .
+
+Agent Ready: my-app
+Score: 72/100
+Languages: TypeScript, Python
+Frameworks: Next.js, React
+Databases/tools: Supabase
+Monorepo: yes (Turborepo, pnpm workspaces)
+
+Generating 14 files:
+- created: CLAUDE.md
+- created: CODEMAP.md
+- created: .aiignore
+- created: .claude/settings.json
+- created: .claude/hooks/prevent-destructive.mjs
+- created: .claude/hooks/protect-generated.mjs
+- created: .claude/hooks/suggest-validation.mjs
+- created: .claude/skills/codebase-navigation/SKILL.md
+- created: .claude/skills/nextjs-hydration/SKILL.md
+- created: .claude/skills/supabase-debugging/SKILL.md
+- created: apps/web/CLAUDE.md
+- created: packages/db/CLAUDE.md
+...
 ```
 
-## Install
+It is designed for real repositories — small apps, legacy codebases, monorepos, or projects that need a clean onboarding layer for Claude Code and other agentic coding tools. It scans directly from disk: no uploads, no embeddings, no remote index.
 
-### Run with npx
-
-```bash
-npx @netanelyasi/agent-ready analyze .
-npx @netanelyasi/agent-ready init . --dry-run
-```
-
-### Install globally
-
-```bash
-npm install -g @netanelyasi/agent-ready
-agent-ready analyze .
-```
-
-### From source
-
-```bash
-git clone https://github.com/Brainboxai-IL/agent-ready.git agent-ready
-cd agent-ready
-npm install
-npm run build
-node dist/cli.js analyze .
-```
-
-> Published package: [`@netanelyasi/agent-ready`](https://www.npmjs.com/package/@netanelyasi/agent-ready). The CLI binary remains `agent-ready` after global install.
+> [!WARNING]
+> `agent-ready` is an **experimental early preview**. Detection is heuristic; review generated files before committing.
 
 ## Quick Start
 
-Analyze a project without writing files:
-
 ```bash
-agent-ready analyze /path/to/project
+# score a project without writing anything
+npx @netanelyasi/agent-ready analyze .
+
+# preview what would be generated (add --verbose to see contents)
+npx @netanelyasi/agent-ready init . --dry-run
+
+# generate the harness
+npx @netanelyasi/agent-ready init .
 ```
 
-Preview generated files:
+Existing files are never overwritten by default — `agent-ready` writes `CLAUDE.md.agent-ready-proposed` next to them for manual review, or use `--force` to overwrite intentionally.
 
-```bash
-agent-ready init /path/to/project --dry-run
-```
+To install globally: `npm install -g @netanelyasi/agent-ready` (the binary is `agent-ready`).
 
-Preview generated file contents:
-
-```bash
-agent-ready init /path/to/project --dry-run --verbose
-```
-
-> Run `agent-ready init` manually from your terminal, not from inside an autonomous coding agent. It writes agent harness files such as `CLAUDE.md`, `.claude/settings.json`, and `.claude/hooks/*`, which some agent security classifiers correctly treat as self-modification.
-
-Generate the harness:
-
-```bash
-agent-ready init /path/to/project
-```
-
-Overwrite existing generated files intentionally:
-
-```bash
-agent-ready init /path/to/project --force
-```
-
-By default, existing files are not overwritten. If `CLAUDE.md` already exists, `agent-ready` writes:
-
-```txt
-CLAUDE.md.agent-ready-proposed
-```
+> [!NOTE]
+> Run `agent-ready init` from your own terminal, not from inside an autonomous coding agent. It writes agent harness files (`CLAUDE.md`, `.claude/settings.json`, hooks) which agent security classifiers correctly treat as self-modification.
 
 ## What it Generates
 
-### `CLAUDE.md`
+| File | Job |
+| --- | --- |
+| `CLAUDE.md` | Lean root guide: project snapshot, stack, env var names, validation commands, operating rules |
+| `CODEMAP.md` | Navigation map: entry points, central files by import usage, import graph, directory purpose |
+| `.aiignore` | Noise exclusions: `node_modules/`, `dist/`, `coverage/`, `**/*.generated.*`, ... |
+| `.claude/settings.json` | Versioned deny rules wiring three runnable safety hooks |
+| `.claude/hooks/*.mjs` | `prevent-destructive` (blocks `rm -rf`, `git reset --hard`, force-push), `protect-generated` (blocks edits to generated/noisy paths), `suggest-validation` (reminds which command to run after edits) |
+| `.claude/skills/*/SKILL.md` | On-demand expertise, generated only on matching signals: `codebase-navigation`, `validation`, `nextjs-hydration`, `supabase-debugging`, `rtl-ui`, `deployment` |
+| `.agent-ready/report.md` | Readiness score with strengths, gaps, and warnings |
+| `.agent-ready/recommendations.md` | LSP, MCP, hook, and maintenance suggestions |
+| `<workspace>/CLAUDE.md` | Local guide per declared monorepo workspace: local commands and navigation rules |
 
-A lean root guide for AI agents:
-
-- project overview (extracted from the README tagline/first paragraph, or `package.json` description)
-- project snapshot
-- detected stack
-- required environment variables (names only, from `.env.example`-style files)
-- important directories
-- validation commands
-- operating rules
-- critical framework/database notes
-
-It is intentionally short. Task-specific expertise is placed in skills instead of loading into every session.
-
-### `CODEMAP.md`
-
-A navigation map for agents before broad search:
-
-- detected entry points
-- central files by internal import usage
-- representative internal import graph
-- external dependencies used in source files
-- top-level directory purpose
-- workspace/package manifests
-- search guidance
-- high-signal project structure
-
-### `.aiignore`
-
-Common noise exclusions:
-
-```txt
-node_modules/
-.next/
-dist/
-build/
-coverage/
-.turbo/
-vendor/
-generated/
-**/*.generated.*
-```
-
-### `.claude/settings.json`
-
-Versioned deny rules and runnable Claude Code hooks so every developer gets the same baseline safety.
-
-Generated hooks include:
-
-- `PreToolUse` for `Bash` — blocks destructive commands such as `rm -rf`, `git reset --hard`, `git clean -f`, and force-pushes.
-- `PreToolUse` for `Write|Edit|MultiEdit` — blocks edits to generated/noisy paths such as `node_modules`, `dist`, `build`, `coverage`, `.next`, `vendor`, and `*.generated.*`.
-- `PostToolUse` for `Write|Edit|MultiEdit` — reminds the agent which local validation command to run after edits.
-
-### `.claude/skills/*/SKILL.md`
-
-On-demand task expertise. Examples:
-
-- `codebase-navigation`
-- `validation`
-- `nextjs-hydration`
-- `supabase-debugging`
-- `rtl-ui`
-- `deployment`
-
-Skills are generated only when matching project signals are detected.
-
-### `.claude/hooks/*.mjs`
-
-Runnable hook scripts wired by `.claude/settings.json`:
-
-- `.claude/hooks/prevent-destructive.mjs`
-- `.claude/hooks/protect-generated.mjs`
-- `.claude/hooks/suggest-validation.mjs`
-
-### `.agent-ready/hooks/README.md`
-
-Human-readable hook policy notes for maintainers. The actual Claude Code hooks are generated under `.claude/hooks` and wired in `.claude/settings.json`.
-
-### Workspace `CLAUDE.md` files
-
-In monorepos, `agent-ready` creates local guides next to detected package manifests, for example:
-
-```txt
-apps/web/CLAUDE.md
-packages/db/CLAUDE.md
-services/api/CLAUDE.md
-```
-
-Each one contains local commands and navigation rules for that workspace.
+The root `CLAUDE.md` stays intentionally short — task-specific expertise goes into skills that load on demand instead of bloating every session.
 
 ## How it Works
 
-`agent-ready` scans the repository directly from disk. It does not upload code, build embeddings, or require a remote index.
-
-The scanner detects:
-
-1. package manifests and scripts
-2. languages and frameworks
-3. database/tooling signals
-4. deployment infrastructure
-5. monorepo/workspace layout
-6. important directories
-7. noisy/generated paths
-8. existing AI harness files
-
-Then it generates a practical agent harness and assigns an **Agent Readiness Score**.
-
-Important: the score does **not** give full credit for files that `agent-ready` generated itself. Generated files are treated as a baseline. They only become readiness signal after maintainers review and customize them.
-
-## Detected Project Signals
-
-Current detection includes:
+The scanner reads manifests, lockfiles, configs, and source files, then detects:
 
 | Area | Signals |
 | --- | --- |
@@ -270,207 +99,74 @@ Current detection includes:
 | Frameworks | Next.js, React, Vue, Nuxt, SvelteKit, Vite, Express, NestJS |
 | Other languages | Python, PHP, Java, C#, Go, Rust, C/C++ |
 | Databases | Supabase, Prisma, Drizzle, PostgreSQL, MySQL, MongoDB |
-| Monorepos | Turborepo, Nx, pnpm workspaces, package workspaces |
+| Monorepos | Turborepo, Nx, pnpm workspaces, package `workspaces` |
 | Deployment | Docker, GitHub Actions, Vercel, Netlify, Cloudflare Workers |
 | UI traits | Hebrew/RTL detection |
-| Project context | README description/tagline, required env vars from `.env.example` |
+| Project context | README description, required env vars from `.env.example` |
 | Validation | build, test, lint, typecheck, format scripts |
 
-## Code Understanding
+On top of that it builds a lightweight static code map for JS/TS, Python, Go, and Rust: manifest-declared entry points (`bin`, console scripts, `[[bin]]`), import relationships resolved per language (including TS imported via runtime `.js` specifiers, Python relative modules, `go.mod` paths, and Rust `mod`/`crate::` declarations), central files ranked by inbound imports, and external packages with standard libraries filtered out.
 
-`agent-ready` is moving beyond boilerplate generation. It now builds a lightweight static map for JavaScript, TypeScript, Python, Go, and Rust projects:
-
-- package/script entry points
-- common CLI, server, app, route, Python, Go, and Rust entry files — including projects with no `package.json`
-- manifest-declared entry points: `package.json` `bin`, `pyproject.toml` console scripts, and `Cargo.toml` `[[bin]]` paths
-- JS/TS imports, including TypeScript source imported with runtime `.js` specifiers
-- Python `import` / `from ... import ...` relationships, including relative modules
-- Go imports resolved through the local `go.mod` module path
-- Rust `mod` declarations and basic `crate::` / `self::` / `super::` use paths
-- central files ranked by inbound imports
-- external (third-party) packages imported by source files, with language standard libraries filtered out
-
-This makes `CODEMAP.md` useful as a code navigation artifact, not just a formatted directory listing.
+Everything feeds an **Agent Readiness Score**. The score does not give full credit for files `agent-ready` generated itself — generated files become readiness signal only after maintainers review and customize them.
 
 ## Safety Model
 
-`agent-ready` is conservative by default.
-
 - **No overwrite by default** — existing files produce `*.agent-ready-proposed`.
-- **Dry-run supported** — preview before writing.
-- **Runnable hooks generated** — safety checks are wired in `.claude/settings.json`, not just described in documentation.
-- **Generated noise is denied** — build/vendor/generated paths are excluded and protected by a `PreToolUse` hook.
-- **Root context stays lean** — deep knowledge goes into skills.
-- **Local validation preferred** — workspace commands are favored over full-repo commands.
-- **No self-inflating score** — generated files are not counted as maintainer-authored readiness until reviewed/customized.
+- **Fails loudly on bad input** — a nonexistent target path, a file passed as target, or a typo'd flag is an error, never a silent partial run.
+- **Runnable hooks, not documentation** — safety checks are wired in `.claude/settings.json` and the generated hooks are executed in this repo's test suite: syntax-checked and fed real stdin, asserting deny decisions for `rm -rf`, `git reset --hard`, force-pushes, and edits to generated paths.
+- **Workspace-scoped generation** — per-package `CLAUDE.md` files are written only into declared workspaces, never into stray `examples/` or fixture directories.
+- **No self-inflating score** — generated files are not counted as maintainer-authored readiness.
+
+The test suite (33 tests) also covers degenerate repositories — empty dirs, malformed manifests, binary and multi-megabyte source files — and verifies that repeated `init --force` runs are byte-for-byte stable. CI runs the suite on Ubuntu and Windows across Node 20 and 22, plus a gate that fails if the committed `dist/` drifts from a fresh build.
 
 ## Limitations
 
-`agent-ready` is intentionally conservative and heuristic.
-
-- Detection can miss custom frameworks, unusual scripts, and non-standard repository layouts.
+- Detection is heuristic: custom frameworks, unusual scripts, and non-standard layouts can be missed.
 - Generated files are a strong starting point, not a replacement for maintainer review.
-- Static code understanding covers JS/TS plus first-pass Python/Go/Rust import graphs. PHP/Java/C#/C/C++ are detected but do not yet get import graph mapping.
-- It does not yet perform deep semantic analysis of README files, CI workflows, environment variables, or architecture docs.
-- It does not upload code or call remote AI services.
-- It is not affiliated with or endorsed by Anthropic.
-
-## Example Output
-
-```txt
-Agent Ready: my-app
-Root: /code/my-app
-Score: 72/100
-Languages: TypeScript, Python
-Frameworks: Next.js, React
-Databases/tools: Supabase
-Deployment: Docker, GitHub Actions
-Monorepo: yes (Turborepo, pnpm workspaces)
-
-Missing:
-- No CODEMAP.md / codebase map
-- No reusable skills directory
-
-Generating 14 files:
-- created: CLAUDE.md
-- created: CODEMAP.md
-- created: .aiignore
-- created: .claude/settings.json
-- created: .agent-ready/report.md
-- created: .agent-ready/recommendations.md
-- created: .agent-ready/hooks/README.md
-- created: .claude/skills/codebase-navigation/SKILL.md
-- created: .claude/skills/validation/SKILL.md
-- created: .claude/skills/nextjs-hydration/SKILL.md
-- created: .claude/skills/supabase-debugging/SKILL.md
-- created: apps/web/CLAUDE.md
-- created: packages/db/CLAUDE.md
-```
+- Import graphs cover JS/TS plus first-pass Python/Go/Rust; PHP/Java/C#/C/C++ are detected but not yet mapped.
+- No deep semantic analysis of CI workflows or architecture docs yet.
+- No code upload, no remote AI calls. Not affiliated with or endorsed by Anthropic.
 
 ## CLI Reference
 
-```bash
-agent-ready analyze [path]
-```
+| Command | Effect |
+| --- | --- |
+| `agent-ready analyze [path]` | Scan and print the readiness summary; writes nothing |
+| `agent-ready init [path]` | Scan and generate the harness |
+| `agent-ready init [path] --dry-run` | List the files that would be generated |
+| `agent-ready init [path] --dry-run --verbose` | Also print each file's contents |
+| `agent-ready init [path] --force` | Overwrite existing files instead of proposing |
 
-Scan a project and print the readiness summary. Does not write files.
-
-```bash
-agent-ready init [path]
-```
-
-Scan a project and generate the AI-agent harness.
-
-```bash
-agent-ready init [path] --dry-run
-```
-
-Show which files would be generated without writing anything.
-
-```bash
-agent-ready init [path] --dry-run --verbose
-```
-
-Show the generated contents too. Use this before deciding whether to run `init` for real or manually merge proposed files.
-
-```bash
-agent-ready init [path] --force
-```
-
-Overwrite existing files instead of writing `*.agent-ready-proposed`.
-
-When existing harness files are present, default `init` writes `*.agent-ready-proposed` files. Review and manually merge them; `agent-ready` does not assume its generated `CLAUDE.md` is better than a maintainer-authored one.
+Unknown flags are rejected with an error — a typo like `--dryrun` will never silently trigger a real write run.
 
 ## Development
 
-Requirements:
-
-- Node.js
-- npm
-
-Install dependencies:
-
 ```bash
 npm install
+npm run dev -- analyze .   # run from source
+npm run check              # type-check
+npm test                   # build + 33 tests
 ```
 
-Run in development:
-
-```bash
-npm run dev -- analyze .
-npm run dev -- init . --dry-run
-```
-
-Type-check:
-
-```bash
-npm run check
-```
-
-Run tests:
-
-```bash
-npm test
-```
-
-Build:
-
-```bash
-npm run build
-```
-
-Run compiled CLI:
-
-```bash
-node dist/cli.js analyze .
-```
+Before opening a pull request: run `npm run check` and `npm test`, try the CLI on at least one real project with `--dry-run`, and keep generated root context lean — task-specific expertise belongs in skills.
 
 ## Roadmap
 
-Planned improvements:
-
-- deeper config/CI-workflow analysis (README description and `.env.example` vars already extracted)
+- deeper config/CI-workflow analysis
 - richer monorepo workspace detection
 - generated `CONTRIBUTING.md` and `SECURITY.md` templates
 - optional AI-assisted repository summary mode
 - plugin/export presets for Claude Code, Cursor, Codex, and other agents
-- CI mode for failing builds when agent readiness drops below a threshold
-
-## Brand
-
-`agent-ready` is built by **BrainboxAI**.
-
-BrainboxAI builds practical AI-agent infrastructure: tools, workflows, and automation systems that help teams move from ad-hoc prompting to reliable agent operations.
+- CI mode failing builds when readiness drops below a threshold
 
 ## Acknowledgements
 
-`agent-ready` was created after studying Anthropic's guidance on making large codebases navigable for Claude Code.
-
-> **Reference article**  
-> [How Claude Code works in large codebases: best practices and where to start](https://claude.com/blog/how-claude-code-works-in-large-codebases-best-practices-and-where-to-start) — Anthropic.
-
-The core idea is to turn those best practices into a repeatable CLI workflow:
-
-- scan the repository
-- generate lean, layered context
-- map the codebase before broad search
-- separate reusable expertise into skills
-- document hooks, validation paths, MCP, and LSP recommendations
-- keep generated/build/vendor noise away from agents
-
-This project is independent and is not affiliated with or endorsed by Anthropic.
-
-## Contributing
-
-Contributions are welcome once the public repository is available.
-
-Before opening a pull request:
-
-1. Run `npm run check`.
-2. Run `npm run build`.
-3. Test the CLI on at least one real project with `--dry-run`.
-4. Keep generated context lean; do not move task-specific expertise into root `CLAUDE.md` templates.
+`agent-ready` was created after studying Anthropic's article [How Claude Code works in large codebases](https://claude.com/blog/how-claude-code-works-in-large-codebases-best-practices-and-where-to-start), and turns that guidance — lean context files, codebase maps, skills, hooks, scoped noise — into a repeatable CLI workflow. This project is independent and is not affiliated with or endorsed by Anthropic.
 
 ## License
 
 MIT © BrainboxAI
+
+<p align="center">
+  <img src="./assets/readme/brainbox-footer.svg" width="300" alt="Built by BrainboxAI — brainboxai.io">
+</p>

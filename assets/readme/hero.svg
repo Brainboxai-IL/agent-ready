@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="1200" height="380" viewBox="0 0 1200 380"
+     role="img" aria-labelledby="title desc">
+  <title id="title">agent-ready: turn any repository into an AI-agent-ready codebase</title>
+  <desc id="desc">Left: the agent-ready name and promise with the npx command. Right: a terminal showing agent-ready init generating CLAUDE.md, CODEMAP.md, safety hooks and skills with a readiness score.</desc>
+
+  <rect width="1200" height="380" rx="26" fill="#0A0E14"/>
+
+  <g id="title-block">
+    <text x="64" y="86" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="18" letter-spacing="3" fill="#7E8BA0">BRAINBOXAI · AI-AGENT HARNESS CLI</text>
+    <text x="64" y="158" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="66" font-weight="800" fill="#EAF0F7">agent-ready</text>
+    <text x="64" y="206" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="24" fill="#B8C2D0">One command turns any repository into a codebase</text>
+    <text x="64" y="240" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="24" fill="#B8C2D0">AI agents can navigate safely.</text>
+
+    <rect x="64" y="272" width="436" height="46" rx="10" fill="#0D1420" stroke="#1A2230"/>
+    <text x="84" y="301" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="19" fill="#3D8BFD">npx @netanelyasi/agent-ready init .</text>
+  </g>
+
+  <g id="project-proof">
+    <rect x="648" y="46" width="488" height="290" rx="14" fill="#0D1420" stroke="#1A2230"/>
+    <circle cx="676" cy="74" r="6" fill="#C0722E"/>
+    <circle cx="698" cy="74" r="6" fill="#7E8BA0"/>
+    <circle cx="720" cy="74" r="6" fill="#3D8BFD"/>
+
+    <g font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="18">
+      <text x="676" y="116" fill="#EAF0F7">$ agent-ready init .</text>
+      <text x="676" y="146" fill="#7E8BA0">Score: <tspan fill="#C0722E" font-weight="700">72/100</tspan> · Generating 13 files</text>
+      <text x="676" y="180" fill="#3D8BFD">+ CLAUDE.md</text>
+      <text x="676" y="208" fill="#3D8BFD">+ CODEMAP.md</text>
+      <text x="676" y="236" fill="#3D8BFD">+ .aiignore</text>
+      <text x="676" y="264" fill="#3D8BFD">+ .claude/settings.json <tspan fill="#7E8BA0">· deny rules</tspan></text>
+      <text x="676" y="292" fill="#3D8BFD">+ .claude/hooks/ <tspan fill="#7E8BA0">· 3 runnable guards</tspan></text>
+      <text x="676" y="320" fill="#3D8BFD">+ .claude/skills/ <tspan fill="#7E8BA0">· per-stack expertise</tspan></text>
+    </g>
+  </g>
+</svg>
