@@ -7,7 +7,11 @@ import path from "node:path";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
-const expectedVersion = "0.2.1";
+// always compare against the version this checkout declares, so the smoke
+// harness cannot go stale when the package version bumps
+const expectedVersion = JSON.parse(
+  await readFile(new URL("../package.json", import.meta.url), "utf8")
+).version;
 const checks = [];
 
 async function main() {

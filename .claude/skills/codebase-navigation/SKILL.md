@@ -1,6 +1,11 @@
+---
+name: codebase-navigation
+description: Use when starting work in this repository or when a task spans unfamiliar directories.
+---
+
 # codebase-navigation
 
-Description: Use when starting work in this repository or when a task spans unfamiliar directories.
+Use when starting work in this repository or when a task spans unfamiliar directories.
 
 ## Rules
 - Read CODEMAP.md first.

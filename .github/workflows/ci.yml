@@ -7,9 +7,14 @@ on:
     branches: [main]
 
 jobs:
-  build:
-    name: Type-check and build
-    runs-on: ubuntu-latest
+  test:
+    name: Test (${{ matrix.os }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [20, 22]
 
     steps:
       - name: Checkout
@@ -18,7 +23,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ matrix.node }}
           cache: npm
 
       - name: Install dependencies
@@ -35,3 +40,27 @@ jobs:
 
       - name: Smoke test
         run: node dist/cli.js analyze .
+
+  dist-drift:
+    name: Committed dist matches a fresh build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Rebuild and compare
+        run: |
+          npm run build
+          git diff --exit-code dist || {
+            echo "::error::dist/ is stale - run 'npm run build' and commit the result"
+            exit 1
+          }
