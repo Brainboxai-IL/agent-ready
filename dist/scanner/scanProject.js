@@ -24,7 +24,7 @@ export async function scanProject(rootInput) {
     const frameworks = detectFrameworks(relativeFiles, allDeps);
     const databases = detectDatabases(relativeFiles, allDeps);
     const deployment = await detectDeployment(root, relativeFiles, allDeps);
-    const monorepo = detectMonorepo(relativeFiles, packages, rootPackage);
+    const monorepo = detectMonorepo(relativeFiles, rootPackage);
     const packageManager = detectPackageManager(root, rootPackage, relativeFiles);
     const commands = detectCommands(packages, packageManager);
     const languages = detectLanguages(files);
@@ -175,7 +175,7 @@ async function detectDeployment(root, files, deps) {
         found.add("Cloudflare Workers");
     return [...found];
 }
-function detectMonorepo(files, packages, rootPackage) {
+function detectMonorepo(files, rootPackage) {
     const tools = new Set();
     if (files.includes("turbo.json"))
         tools.add("Turborepo");
@@ -186,7 +186,9 @@ function detectMonorepo(files, packages, rootPackage) {
     if (rootPackage?.workspaces?.length)
         tools.add("package workspaces");
     const workspaceGlobs = rootPackage?.workspaces ?? (files.includes("pnpm-workspace.yaml") ? ["apps/*", "packages/*", "services/*"] : []);
-    return { detected: tools.size > 0 || packages.length > 1, tools: [...tools], workspaceGlobs };
+    // a second package.json somewhere (examples/, fixtures/) is not a monorepo;
+    // require an actual workspace declaration or tool
+    return { detected: tools.size > 0, tools: [...tools], workspaceGlobs };
 }
 function detectCommands(packages, projectPackageManager) {
     const map = {};
