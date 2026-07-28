@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { stat } from "node:fs/promises";
 import path from "node:path";
 import { scoreReadiness } from "./analyzers/scoreReadiness.js";
 import { generateFiles } from "./generators/generate.js";
@@ -21,6 +22,13 @@ async function main() {
   }
 
   const root = path.resolve(args.target);
+  const rootStat = await stat(root).catch(() => undefined);
+  if (!rootStat) {
+    throw new Error(`Target does not exist: ${root}. Refusing to create a harness in a directory that is not there - check the path.`);
+  }
+  if (!rootStat.isDirectory()) {
+    throw new Error(`Target is not a directory: ${root}`);
+  }
   const scan = await scanProject(root);
   const score = scoreReadiness(scan);
 
@@ -69,12 +77,20 @@ function printDryRunContent(target: string, content: string) {
   console.log(`  --- ${target} end ---`);
 }
 
+const KNOWN_FLAGS = new Set(["--dry-run", "--force", "--verbose", "--help"]);
+
 function parseArgs(argv: string[]): Args {
-  const command = argv[0] === "init" || argv[0] === "analyze" ? argv[0] : argv[0] ? "help" : "help";
-  const flags = new Set(argv.filter((arg) => arg.startsWith("--")));
-  const target = argv.find((arg, index) => index > 0 && !arg.startsWith("--")) ?? ".";
+  const command = argv[0] === "init" || argv[0] === "analyze" ? argv[0] : "help";
+  const flags = new Set(argv.filter((arg) => arg.startsWith("-")));
+  // a typo'd flag silently becoming a no-op (--dryrun doing a real write run)
+  // or becoming the target directory (init -v) is worse than failing loudly
+  const unknown = [...flags].filter((flag) => !KNOWN_FLAGS.has(flag));
+  if (unknown.length > 0) {
+    throw new Error(`Unknown flag(s): ${unknown.join(", ")}. Known flags: ${[...KNOWN_FLAGS].join(", ")}`);
+  }
+  const target = argv.find((arg, index) => index > 0 && !arg.startsWith("-")) ?? ".";
   return {
-    command,
+    command: flags.has("--help") ? "help" : command,
     target,
     dryRun: flags.has("--dry-run"),
     force: flags.has("--force"),

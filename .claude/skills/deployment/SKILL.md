@@ -1,6 +1,11 @@
+---
+name: deployment
+description: Use when changing Docker, CI, deploy config, environment variables, or release flow.
+---
+
 # deployment
 
-Description: Use when changing Docker, CI, deploy config, environment variables, or release flow.
+Use when changing Docker, CI, deploy config, environment variables, or release flow.
 
 ## Rules
 - Document required environment variables.

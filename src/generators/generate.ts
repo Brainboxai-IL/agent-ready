@@ -29,10 +29,23 @@ export function generateFiles(scan: ProjectScan, score: ReadinessScore, force: b
   }
 }
 
+function workspaceGlobToRegExp(glob: string): RegExp {
+  const escaped = glob.replaceAll(/[.+^${}()|[\]\\]/g, "\\$&").replaceAll("*", "[^/]+");
+  return new RegExp(`^${escaped}$`);
+}
+
 function subdirClaudeFiles(scan: ProjectScan): Array<{ dir: string; content: string }> {
   if (!scan.monorepo.detected) return [];
+  const globs = scan.monorepo.workspaceGlobs.map(workspaceGlobToRegExp);
   return scan.packages
     .filter((pkg) => pkg.path !== "package.json")
+    .filter((pkg) => {
+      // only write into declared workspaces; a stray package.json in an
+      // examples/ or fixtures/ dir must not receive a CLAUDE.md
+      if (globs.length === 0) return true;
+      const dir = path.posix.dirname(pkg.path);
+      return globs.some((glob) => glob.test(dir));
+    })
     .map((pkg) => {
       const dir = path.posix.dirname(pkg.path);
       const commands = packageCommandLines(pkg, scan.packageManager);

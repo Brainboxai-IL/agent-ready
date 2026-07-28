@@ -1,4 +1,4 @@
-# Agent Readiness Report — agent-ready
+# Agent Readiness Report — @netanelyasi/agent-ready
 
 Score: **48/100**
 
@@ -8,9 +8,11 @@ Score: **48/100**
 - Databases/tools: none detected
 - Deployment: GitHub Actions
 - Monorepo: no/unclear
-- Entry points: 1
+- Entry points: 2
 - Resolved internal imports: 8
-- External packages imported: 7
+- External packages imported: 0
+- Required env vars (from .env.example): 0
+- Project description: detected
 
 ## Strengths
 - Build command detected

@@ -39,7 +39,7 @@ export async function scanProject(rootInput: string): Promise<ProjectScan> {
   const frameworks = detectFrameworks(relativeFiles, allDeps);
   const databases = detectDatabases(relativeFiles, allDeps);
   const deployment = await detectDeployment(root, relativeFiles, allDeps);
-  const monorepo = detectMonorepo(relativeFiles, packages, rootPackage);
+  const monorepo = detectMonorepo(relativeFiles, rootPackage);
   const packageManager = detectPackageManager(root, rootPackage, relativeFiles);
   const commands = detectCommands(packages, packageManager);
   const languages = detectLanguages(files);
@@ -170,14 +170,16 @@ async function detectDeployment(root: string, files: string[], deps: Record<stri
   return [...found];
 }
 
-function detectMonorepo(files: string[], packages: PackageInfo[], rootPackage?: PackageInfo): ProjectScan["monorepo"] {
+function detectMonorepo(files: string[], rootPackage?: PackageInfo): ProjectScan["monorepo"] {
   const tools = new Set<string>();
   if (files.includes("turbo.json")) tools.add("Turborepo");
   if (files.includes("nx.json")) tools.add("Nx");
   if (files.includes("pnpm-workspace.yaml")) tools.add("pnpm workspaces");
   if (rootPackage?.workspaces?.length) tools.add("package workspaces");
   const workspaceGlobs = rootPackage?.workspaces ?? (files.includes("pnpm-workspace.yaml") ? ["apps/*", "packages/*", "services/*"] : []);
-  return { detected: tools.size > 0 || packages.length > 1, tools: [...tools], workspaceGlobs };
+  // a second package.json somewhere (examples/, fixtures/) is not a monorepo;
+  // require an actual workspace declaration or tool
+  return { detected: tools.size > 0, tools: [...tools], workspaceGlobs };
 }
 
 function detectCommands(packages: PackageInfo[], projectPackageManager?: string): Partial<Record<CommandName, string[]>> {
