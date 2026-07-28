@@ -5,7 +5,7 @@
 
 <p align="center">
   <a href="https://github.com/Brainboxai-IL/agent-ready/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Brainboxai-IL/agent-ready/actions/workflows/ci.yml/badge.svg" /></a>
-  <img alt="Version" src="https://img.shields.io/badge/version-0.3.1-111827?style=flat-square" />
+  <img alt="Version" src="https://img.shields.io/badge/version-0.4.0-111827?style=flat-square" />
   <img alt="License" src="https://img.shields.io/badge/license-MIT-0f766e?style=flat-square" />
   <img alt="Node" src="https://img.shields.io/badge/node-%3E%3D20-3c873a?style=flat-square" />
   <img alt="Built by BrainboxAI" src="https://img.shields.io/badge/by-BrainboxAI-111827?style=flat-square" />
@@ -117,7 +117,7 @@ Everything feeds an **Agent Readiness Score**. The score does not give full cred
 - **Workspace-scoped generation** — per-package `CLAUDE.md` files are written only into declared workspaces, never into stray `examples/` or fixture directories.
 - **No self-inflating score** — generated files are not counted as maintainer-authored readiness.
 
-The test suite (33 tests) also covers degenerate repositories — empty dirs, malformed manifests, binary and multi-megabyte source files — and verifies that repeated `init --force` runs are byte-for-byte stable. CI runs the suite on Ubuntu and Windows across Node 20 and 22, plus a gate that fails if the committed `dist/` drifts from a fresh build.
+The test suite (32 tests) also covers degenerate repositories — empty dirs, malformed manifests, binary and multi-megabyte source files — and verifies that repeated `init --force` runs are byte-for-byte stable. CI runs the suite on Ubuntu and Windows across Node 20 and 22, plus a gate that fails if the committed `dist/` drifts from a fresh build.
 
 ## Limitations
 
@@ -145,7 +145,7 @@ Unknown flags are rejected with an error — a typo like `--dryrun` will never s
 npm install
 npm run dev -- analyze .   # run from source
 npm run check              # type-check
-npm test                   # build + 33 tests
+npm test                   # build + 32 tests
 ```
 
 Before opening a pull request: run `npm run check` and `npm test`, try the CLI on at least one real project with `--dry-run`, and keep generated root context lean — task-specific expertise belongs in skills.
